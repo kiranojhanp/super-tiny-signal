@@ -1,16 +1,16 @@
-import { signal } from "./core";
-import { SetState, Store } from "./types";
+import { signal } from "../core/signal.js";
+import { SetState, Store } from "../types";
 
 /**
- * The `create` function returns a function that accepts an initializer
+ * The `createStore` function returns a function that accepts an initializer
  * (optionally wrapped by middleware) and produces a getter function for the store.
  *
- * Usage:
+ * @example
  *
- * import { create } from 'my-package'
+ * import { createStore } from 'my-package'
  * import { persist, createJSONStorage } from 'my-package/middleware'
  *
- * export const useBearStore = create()(
+ * export const useBearStore = createStore()(
  *   persist(
  *     (set, get) => ({
  *       bears: 0,
@@ -23,13 +23,13 @@ import { SetState, Store } from "./types";
  *   ),
  * )
  *
- * Then elsewhere:
+ * // Then elsewhere:
  *
  * const { bears, addABear } = useBearStore();
  * console.log(bears.value);
  * addABear();
  */
-export function create<T extends Record<string, any>>() {
+export function createStore<T extends Record<string, any>>() {
   return (
     initializer: (set: SetState<T>, get: () => T) => T
   ): (() => Store<T>) => {

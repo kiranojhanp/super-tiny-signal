@@ -1,7 +1,6 @@
-import { Signal, effect } from "./core";
-
-/** The three kinds of dynamic bindings supported. */
-type BindingType = "text" | "attr" | "event";
+import { effect } from "../core/effect.js";
+import { Signal } from "../core/signal.js";
+import { BindingType } from "../types";
 
 /**
  * Determines the binding type for an interpolation based on the literal

@@ -2,7 +2,15 @@
 // Type Definitions & Interfaces
 // ──────────────────────────────────────────────────────────────
 
-import { Signal } from "./core";
+import { Signal } from "../core/signal";
+
+export interface ReactiveEffect {
+  (): void;
+  disposed?: boolean;
+}
+
+/** The three kinds of dynamic bindings supported. */
+export type BindingType = "text" | "attr" | "event";
 
 /**
  * A function type to update the state.
