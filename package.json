@@ -1,13 +1,13 @@
 {
   "module": "dist/index.esm.js",
-  "name": "tinysignal",
+  "name": "super-tiny-signal",
   "version": "0.0.1",
   "description": "A lightweight reactive library with hook-inspired APIs for plain HTML.",
-  "homepage": "https://github.com/kiranojhanp/tinysignal#readme",
-  "bugs": "https://github.com/kiranojhanp/tinysignal/issues",
+  "homepage": "https://github.com/kiranojhanp/super-tiny-signal#readme",
+  "bugs": "https://github.com/kiranojhanp/super-tiny-signal/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kiranojhanp/tinysignal.git"
+    "url": "git+https://github.com/kiranojhanp/super-tiny-signal.git"
   },
   "files": [
     "dist"
@@ -20,7 +20,7 @@
     "release": "npx bumpp --commit --push --tag && npm publish"
   },
   "keywords": [
-    "tinysignal"
+    "super-tiny-signal"
   ],
   "devDependencies": {
     "tsup": "^8.3.6",
