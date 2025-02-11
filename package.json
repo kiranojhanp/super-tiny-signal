@@ -1,0 +1,20 @@
+{
+  "module": "dist/index.esm.js",
+  "name": "tinysignal",
+  "version": "0.0.1",
+  "description": "A lightweight reactive library with hook-inspired APIs for plain HTML.",
+  "license": "MIT",
+  "author": "Kiran Ojha",
+  "type": "module",
+  "scripts": {
+    "build": "tsup"
+  },
+  "keywords": [
+    "tinysignal"
+  ],
+  "devDependencies": {
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3"
+  },
+  "types": "dist/index.d.ts"
+}
