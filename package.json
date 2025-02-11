@@ -3,11 +3,21 @@
   "name": "tinysignal",
   "version": "0.0.1",
   "description": "A lightweight reactive library with hook-inspired APIs for plain HTML.",
+  "homepage": "https://github.com/kiranojhanp/tinysignal#readme",
+  "bugs": "https://github.com/kiranojhanp/tinysignal/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiranojhanp/tinysignal.git"
+  },
+  "files": [
+    "dist"
+  ],
   "license": "MIT",
-  "author": "Kiran Ojha",
+  "author": "Kiran Ojha <kiranojha1226@gmail.com>",
   "type": "module",
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "release": "bumpp --commit --push --tag && npm publish"
   },
   "keywords": [
     "tinysignal"
