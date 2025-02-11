@@ -1,5 +1,5 @@
 {
-  "module": "dist/index.esm.js",
+  "module": "dist/index.js",
   "name": "super-tiny-signal",
   "version": "0.0.2-beta.1",
   "description": "A lightweight reactive library with hook-inspired APIs for plain HTML.",
