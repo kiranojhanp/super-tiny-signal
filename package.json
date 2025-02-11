@@ -1,7 +1,7 @@
 {
   "module": "dist/index.js",
   "name": "super-tiny-signal",
-  "version": "0.0.2-beta.1",
+  "version": "0.0.2-beta.2",
   "description": "A lightweight reactive library with hook-inspired APIs for plain HTML.",
   "homepage": "https://github.com/kiranojhanp/super-tiny-signal#readme",
   "bugs": "https://github.com/kiranojhanp/super-tiny-signal/issues",
