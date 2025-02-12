@@ -1,12 +1,14 @@
 import { GetState, PersistenceOptions, SetState } from "../types";
 
 /**
- * The persist middleware wraps an initializer to add persistence.
+ * Persistence middleware that wraps an initializer.
  *
- * It attempts to load any persisted state and wraps the set function so that
- * every state update is saved to the storage.
+ * @template T - The shape of the store state.
+ * @param initializer - The original initializer.
+ * @param options - Persistence options.
+ * @returns A wrapped initializer preserving the store's type.
  */
-export function persist<T extends Record<string, any>>(
+export function persist<T>(
   initializer: (set: SetState<T>, get: GetState<T>) => T,
   options: PersistenceOptions
 ) {

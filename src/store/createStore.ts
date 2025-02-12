@@ -2,32 +2,20 @@ import { signal } from "../core/signal.js";
 import { SetState, Store } from "../types";
 
 /**
- * The `createStore` function returns a function that accepts an initializer
- * (optionally wrapped by middleware) and produces a getter function for the store.
+ * Creates a strongly-typed store.
+ *
+ * @template T - The shape of the store state.
+ * @param initializer - A function that initializes the state, receiving a setter and a getter.
+ * @returns A function that returns the store.
  *
  * @example
+ * const useCounterStore = createStore()((set, get) => ({
+ *   count: 0,
+ *   increment: () => set({ count: get().count + 1 }),
+ *   decrement: () => set({ count: get().count - 1 }),
+ * }));
  *
- * import { createStore } from 'my-package'
- * import { persist, createJSONStorage } from 'my-package/middleware'
- *
- * export const useBearStore = createStore()(
- *   persist(
- *     (set, get) => ({
- *       bears: 0,
- *       addABear: () => set({ bears: get().bears + 1 }),
- *     }),
- *     {
- *       name: 'food-storage', // Unique key for the persisted state
- *       storage: createJSONStorage(() => sessionStorage), // By default localStorage is used
- *     },
- *   ),
- * )
- *
- * // Then elsewhere:
- *
- * const { bears, addABear } = useBearStore();
- * console.log(bears.value);
- * addABear();
+ * const { count, increment, decrement } = useCounterStore();
  */
 export function createStore<T extends Record<string, any>>() {
   return (
@@ -36,21 +24,18 @@ export function createStore<T extends Record<string, any>>() {
     let store: Store<T>;
 
     // Returns the plain state by unwrapping signals.
-    const getState = (): T => {
-      const state = {} as T;
-      for (const key in store) {
-        const property = store[key];
-        // If the property is a Signal, use its value.
-        if (property && typeof property === "object" && "value" in property) {
-          state[key] = property.value;
-        } else {
-          state[key] = property as any;
-        }
-      }
-      return state;
-    };
+    const getState = (): T =>
+      Object.fromEntries(
+        Object.entries(store).map(([key, prop]) => [
+          key,
+          // If the property is a signal, return its value.
+          prop && typeof prop === "object" && "value" in prop
+            ? prop.value
+            : prop,
+        ])
+      ) as T;
 
-    // The set function updates the store.
+    // Updates the state using either a partial state object or an updater function.
     const set: SetState<T> = (partialUpdate) => {
       const currentState = getState();
       const update =
@@ -60,9 +45,9 @@ export function createStore<T extends Record<string, any>>() {
       for (const key in update) {
         if (Object.prototype.hasOwnProperty.call(store, key)) {
           const newValue = update[key];
-          const property = store[key];
-          if (property && typeof property === "object" && "value" in property) {
-            property.value = newValue;
+          const prop = store[key];
+          if (prop && typeof prop === "object" && "value" in prop) {
+            prop.value = newValue;
           } else {
             store[key] = newValue as any;
           }
@@ -70,9 +55,8 @@ export function createStore<T extends Record<string, any>>() {
       }
     };
 
-    // Initialize the state.
-    const initialState = initializer(set, () => getState());
-    // Wrap non-function values in signals.
+    // Initialize state and wrap non-function values in signals.
+    const initialState = initializer(set, getState);
     store = Object.fromEntries(
       Object.entries(initialState).map(([key, value]) => [
         key,
@@ -80,7 +64,6 @@ export function createStore<T extends Record<string, any>>() {
       ])
     ) as Store<T>;
 
-    // Return a getter function for the store.
     return () => store;
   };
 }

@@ -24,7 +24,7 @@ export type GetState<T> = () => T;
 /**
  * The store type. Non-function values are wrapped in Signals.
  */
-export type Store<T extends Record<string, any>> = {
+export type Store<T> = {
   [K in keyof T]: T[K] extends Function ? T[K] : Signal<T[K]>;
 };
 
