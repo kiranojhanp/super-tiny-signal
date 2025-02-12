@@ -29,13 +29,15 @@ function determineBindingType(preceding: string): BindingType {
  * A tagged template literal helper that creates a DocumentFragment
  * from a template string containing dynamic bindings.
  *
- * It supports three binding types:
+ * It supports four binding types:
  * 1. **Text bindings:** when a placeholder appears in text content.
- * 2. **Event bindings:** when a placeholder appears as an event attribute value.
- * 3. **Attribute bindings:** for any other attribute placeholders.
+ * 2. **Node bindings:** when a placeholder is a Node (such as a DocumentFragment)
+ *    that should be inserted directly.
+ * 3. **Event bindings:** when a placeholder appears as an event attribute value.
+ * 4. **Attribute bindings:** for any other attribute placeholders.
  *
- * For reactive values (instances of Signal), an effect is registered to
- * update the DOM automatically when the value changes.
+ * For reactive values (instances of Signal), an effect is registered to update
+ * the DOM automatically when the value changes.
  *
  * @param strings The static string portions of the template.
  * @param values The dynamic expressions to interpolate.
@@ -50,15 +52,21 @@ export function html(
   for (let i = 0; i < strings.length; i++) {
     htmlString += strings[i];
     if (i < values.length) {
-      const bindingType = determineBindingType(strings[i]);
-      // Insert a unique marker depending on the binding type.
-      if (bindingType === "text") {
-        // Use an HTML comment marker for text bindings.
-        htmlString += `<!--marker:${i}:text-->`;
-      } else if (bindingType === "event") {
-        htmlString += `__event_marker_${i}__`;
-      } else if (bindingType === "attr") {
-        htmlString += `__attr_marker_${i}__`;
+      const value = values[i];
+      // If the value is a Node (or DocumentFragment), insert a node marker.
+      if (value instanceof Node) {
+        htmlString += `<!--node_marker:${i}-->`;
+      } else {
+        // Determine the binding type based on the preceding literal.
+        const bindingType = determineBindingType(strings[i]);
+        if (bindingType === "text") {
+          // Use an HTML comment marker for text bindings.
+          htmlString += `<!--marker:${i}:text-->`;
+        } else if (bindingType === "event") {
+          htmlString += `__event_marker_${i}__`;
+        } else if (bindingType === "attr") {
+          htmlString += `__attr_marker_${i}__`;
+        }
       }
     }
   }
@@ -68,97 +76,93 @@ export function html(
   template.innerHTML = htmlString;
   const fragment = template.content;
 
-  processTextBindings(fragment, values);
-  processAttrAndEventBindings(fragment, values);
+  // Recursively process all binding markers in the fragment.
+  processBindingsRecursively(fragment, values);
 
   return fragment;
 }
 
 /**
- * Processes all text binding markers (HTML comments) in the given fragment.
+ * Recursively processes binding markers in the given node and its descendants.
  *
- * It replaces each comment marker of the form:
+ * This function handles:
+ * 1. **Text binding markers:** Replaces comments of the form:
+ *      <!--marker:{index}:text-->
+ *    with a text node containing the corresponding dynamic value.
+ *    If the value is a Signal, an effect is created to update the text.
  *
- *     <!--marker:{index}:text-->
+ * 2. **Node binding markers:** Replaces comments of the form:
+ *      <!--node_marker:{index}-->
+ *    with the corresponding Node from the dynamic values.
  *
- * with a text node containing the corresponding dynamic value. If the value
- * is a Signal then an effect is created to keep the text up-to-date.
+ * 3. **Attribute and event binding markers:** For each element, replaces attribute
+ *    values that match:
+ *      - __event_marker_{index}__ for event bindings.
+ *      - __attr_marker_{index}__ for attribute bindings.
+ *    For event bindings, if the dynamic value is a function, an event listener is added.
+ *    For attribute bindings, if the value is a Signal, an effect is created to update the attribute.
  *
- * @param fragment The DocumentFragment to process.
+ * @param node The starting node for processing.
  * @param values The dynamic values corresponding to the template expressions.
  */
-function processTextBindings(fragment: DocumentFragment, values: any[]): void {
-  const textMarkerRegex = /^marker:(\d+):text$/;
-  const walker = document.createTreeWalker(
-    fragment,
-    NodeFilter.SHOW_COMMENT,
-    null
-  );
-  let currentNode: Comment | null;
-  while ((currentNode = walker.nextNode() as Comment | null)) {
-    const markerMatch = currentNode.nodeValue?.match(textMarkerRegex);
-    if (markerMatch) {
-      const idx = parseInt(markerMatch[1], 10);
+function processBindingsRecursively(node: Node, values: any[]): void {
+  // Process comment nodes for text and node markers.
+  if (node.nodeType === Node.COMMENT_NODE) {
+    const comment = node as Comment;
+    const textMarkerRegex = /^marker:(\d+):text$/;
+    const nodeMarkerRegex = /^node_marker:(\d+)$/;
+    let match = comment.nodeValue?.match(textMarkerRegex);
+    if (match) {
+      const idx = parseInt(match[1], 10);
       const bindingValue = values[idx];
       let newNode: Node;
       if (bindingValue instanceof Signal) {
-        // Create an initial text node from the signal's current value.
         newNode = document.createTextNode(String(bindingValue.peek()));
-        // Update the text content reactively.
         effect(() => {
           newNode.textContent = String(bindingValue.value);
         });
       } else {
         newNode = document.createTextNode(String(bindingValue));
       }
-      currentNode.parentNode?.replaceChild(newNode, currentNode);
+      comment.parentNode?.replaceChild(newNode, comment);
+      // Process the newly inserted node recursively.
+      processBindingsRecursively(newNode, values);
+      return;
+    }
+    match = comment.nodeValue?.match(nodeMarkerRegex);
+    if (match) {
+      const idx = parseInt(match[1], 10);
+      const bindingValue = values[idx];
+      if (bindingValue instanceof Node) {
+        comment.parentNode?.replaceChild(bindingValue, comment);
+        // Process the inserted node recursively in case it contains markers.
+        processBindingsRecursively(bindingValue, values);
+      }
+      return;
     }
   }
-}
 
-/**
- * Processes attribute and event binding markers in all elements of the fragment.
- *
- * It searches for markers in attribute values:
- *
- * - Event bindings are marked as: __event_marker_{index}__
- * - Attribute bindings are marked as: __attr_marker_{index}__
- *
- * For event bindings, if the dynamic value is a function it is added as an event
- * listener (with the event name derived from the attribute name). For attribute
- * bindings, if the value is a Signal an effect is created to update the attribute.
- *
- * @param fragment The DocumentFragment to process.
- * @param values The dynamic values corresponding to the template expressions.
- */
-function processAttrAndEventBindings(
-  fragment: DocumentFragment,
-  values: any[]
-): void {
-  const eventMarkerRegex = /^__event_marker_(\d+)__$/;
-  const attrMarkerRegex = /^__attr_marker_(\d+)__$/;
-
-  // Query all elements so we can inspect their attributes.
-  const elements = fragment.querySelectorAll("*");
-  elements.forEach((el) => {
-    // Convert NamedNodeMap to array for iteration.
-    Array.from(el.attributes).forEach((attr) => {
+  // Process element nodes for attribute and event markers.
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const el = node as Element;
+    const eventMarkerRegex = /^__event_marker_(\d+)__$/;
+    const attrMarkerRegex = /^__attr_marker_(\d+)__$/;
+    for (const attr of Array.from(el.attributes)) {
       const { name, value: attrValue } = attr;
-      let match: RegExpMatchArray | null;
-      // Process event binding markers.
-      if ((match = attrValue.match(eventMarkerRegex))) {
+      let match = attrValue.match(eventMarkerRegex);
+      if (match) {
         const idx = parseInt(match[1], 10);
         const bindingValue = values[idx];
         el.removeAttribute(name);
         if (typeof bindingValue === "function") {
-          // Derive the event name by stripping the leading "on".
+          // Derive event name by removing the "on" prefix.
           const eventName = name.slice(2);
           el.addEventListener(eventName, bindingValue);
         }
-        return; // Skip further processing for this attribute.
+        continue;
       }
-      // Process generic attribute binding markers.
-      if ((match = attrValue.match(attrMarkerRegex))) {
+      match = attrValue.match(attrMarkerRegex);
+      if (match) {
         const idx = parseInt(match[1], 10);
         const bindingValue = values[idx];
         if (bindingValue instanceof Signal) {
@@ -169,6 +173,12 @@ function processAttrAndEventBindings(
           el.setAttribute(name, String(bindingValue));
         }
       }
-    });
+    }
+  }
+
+  // Recursively process child nodes.
+  // Converting the live NodeList to an array avoids issues with modifications.
+  Array.from(node.childNodes).forEach((child) => {
+    processBindingsRecursively(child, values);
   });
 }
