@@ -51,23 +51,6 @@ store.increment();
 console.log(store.count.value); // 1
 ```
 
-### Custom Hooks Example
-
-```javascript
-import { useEffect, useState } from "super-tiny-signal";
-
-function Timer() {
-  const [time, setTime] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => setTime((prev) => prev + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <div>Elapsed Time: {time} seconds</div>;
-}
-```
-
 ## 📚 API Reference
 
 ### Core API
