@@ -2,8 +2,6 @@
 // Type Definitions & Interfaces
 // ──────────────────────────────────────────────────────────────
 
-import { Signal } from "../core/signal";
-
 export interface ReactiveEffect {
   (): void;
   disposed?: boolean;
@@ -22,10 +20,11 @@ export type SetState<T> = (
 export type GetState<T> = () => T;
 
 /**
- * The store type. Non-function values are wrapped in Signals.
+ * The store type
  */
-export type Store<T> = {
-  [K in keyof T]: T[K] extends Function ? T[K] : Signal<T[K]>;
+export type Store<T> = T & {
+  getState: () => T;
+  subscribe: (listener: (state: T) => void) => () => void;
 };
 
 /**
