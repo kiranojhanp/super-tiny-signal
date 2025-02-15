@@ -1,14 +1,23 @@
+import { Signal } from "../core/signal";
+
 // ──────────────────────────────────────────────────────────────
 // Type Definitions & Interfaces
 // ──────────────────────────────────────────────────────────────
 
+export type EqualsFn<T> = (a: T, b: T) => boolean;
+
 export interface ReactiveEffect {
   (): void;
   disposed?: boolean;
+  dependencies?: Set<Signal<any>>;
 }
 
-/** The three kinds of dynamic bindings supported. */
-export type BindingType = "text" | "attr" | "event";
+/**
+ * An internal type for our effect runner that includes dependency tracking.
+ */
+export type EffectRunner = ReactiveEffect & {
+  dependencies: Set<Signal<any>>;
+};
 
 /**
  * A function type to update the state.

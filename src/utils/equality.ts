@@ -1,7 +1,9 @@
+import type { EqualsFn } from "../types";
+
 /**
  * Deep equality check for objects and arrays.
  */
-function deepEqual(a: any, b: any): boolean {
+export function deepEqual(a: any, b: any): boolean {
   if (a === b) return true;
   if (
     typeof a !== "object" ||
@@ -28,4 +30,4 @@ function deepEqual(a: any, b: any): boolean {
   return true;
 }
 
-export { deepEqual };
+export const defaultEquals: EqualsFn<any> = Object.is;

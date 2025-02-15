@@ -1,6 +1,6 @@
 import { scheduleEffect } from "../core/effect";
 import { signal, Signal } from "../core/signal";
-import { deepEqual } from "../utils/deepEqual";
+import { deepEqual } from "../utils/equality";
 
 import type { CreateStoreConfig, SetState, Store } from "../types";
 

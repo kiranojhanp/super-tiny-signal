@@ -1,6 +1,6 @@
 // Exporting core-related utilities and classes
 export { Signal, signal } from "./core/signal";
-export { Computed, computed } from "./core/signal";
+export { Computed, computed } from "./core/computed";
 export { effect, batch } from "./core/effect";
 
 // Exporting store-related functionality
@@ -17,7 +17,7 @@ export { useMemo } from "./hooks/useMemo";
 export { useState } from "./hooks/useState";
 
 // Exporting utility functions
-export { deepEqual } from "./utils/deepEqual";
+export { deepEqual } from "./utils/equality";
 
 // Export types
 export type { Store } from "./types";

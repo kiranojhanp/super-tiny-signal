@@ -1,4 +1,4 @@
-import { ReactiveEffect } from "../types";
+import type { EffectRunner, ReactiveEffect } from "../types";
 
 // Active effects stack.
 export const activeEffects: ReactiveEffect[] = [];
@@ -58,19 +58,43 @@ export function batch(fn: () => void): void {
 }
 
 /**
- * Registers a reactive effect.
+ * Registers a reactive effect with dependency tracking and cleanup.
+ *
+ * The effect is immediately run once to establish its dependencies.
+ * It returns a disposal function that, when called, will prevent further runs
+ * and remove the effect from all signals it depends on.
  */
-export function effect(fn: ReactiveEffect): () => void {
-  fn.disposed = false;
-  activeEffects.push(fn);
-  try {
-    fn();
-  } finally {
-    activeEffects.pop();
-  }
-  // Disposal: marks the effect as disposed.
-  // (For immediate cleanup from signals, consider storing dependencies on the effect so they can be removed.)
+export function effect(fn: () => void): () => void {
+  const runner: EffectRunner = function effectRunner() {
+    // Cleanup previous dependencies.
+    if (runner.dependencies) {
+      for (const dep of runner.dependencies) {
+        dep.removeEffect(runner);
+      }
+      runner.dependencies.clear();
+    }
+    activeEffects.push(runner);
+    try {
+      fn();
+    } finally {
+      activeEffects.pop();
+    }
+  } as EffectRunner;
+
+  // Initialize runner properties for disposal and dependency tracking.
+  runner.disposed = false;
+  runner.dependencies = new Set();
+
+  // Run the effect immediately to capture initial dependencies.
+  runner();
+
+  // Return a function to dispose of the effect.
   return () => {
-    fn.disposed = true;
+    runner.disposed = true;
+    if (runner.dependencies) {
+      for (const dep of runner.dependencies) {
+        dep.removeEffect(runner);
+      }
+    }
   };
 }
