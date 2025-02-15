@@ -1,6 +1,8 @@
-import { scheduleEffect } from "../core/effect.js";
-import { signal, Signal } from "../core/signal.js";
-import { SetState, Store } from "../types";
+import { scheduleEffect } from "../core/effect";
+import { signal, Signal } from "../core/signal";
+import { deepEqual } from "../utils/deepEqual";
+
+import type { CreateStoreConfig, SetState, Store } from "../types";
 
 /**
  * Checks if a value is a signal.
@@ -10,10 +12,11 @@ function isSignal(value: any): value is Signal<any> {
 }
 
 /**
- * Creates a strongly-typed store with a Zustand-like API.
+ * Creates a strongly-typed store.
  *
  * @template T - The shape of the store state.
  * @param initializer - A function that initializes the state, receiving a setter and a getter.
+ * @param config - Optional configuration for deep equality and error handling.
  * @returns The store instance.
  *
  * @example
@@ -23,18 +26,22 @@ function isSignal(value: any): value is Signal<any> {
  *   decrement: () => void;
  * }
  *
- * const counterStore = createStore<IStore>((set, get) => ({
- *   count: 0,
- *   increment: () => set({ count: get().count + 1 }),
- *   decrement: () => set({ count: get().count - 1 }),
- * }));
+ * const counterStore = createStore<IStore>(
+ *   (set, get) => ({
+ *     count: 0,
+ *     increment: () => set({ count: get().count + 1 }),
+ *     decrement: () => set({ count: get().count - 1 }),
+ *   }),
+ *   { deepEquality: true } // Optional configuration
+ * );
  *
  * console.log(counterStore.getState()); // { count: 0 }
  * counterStore.increment();
  * console.log(counterStore.getState()); // { count: 1 }
  */
 export function createStore<T extends Record<string, any>>(
-  initializer: (set: SetState<T>, get: () => T) => T
+  initializer: (set: SetState<T>, get: () => T) => T,
+  config: CreateStoreConfig<T> = {}
 ): Store<T> {
   let store: Store<T>;
 
@@ -60,7 +67,11 @@ export function createStore<T extends Record<string, any>>(
       try {
         listener(currentState);
       } catch (error) {
-        console.error("Error in store subscriber:", error);
+        if (config.onSubscriberError) {
+          config.onSubscriberError(error, listener);
+        } else {
+          console.error("Error in store subscriber:", error);
+        }
       }
     });
   }
@@ -91,8 +102,11 @@ export function createStore<T extends Record<string, any>>(
         const newValue = update[key];
         const prop = store[key];
         if (isSignal(prop)) {
+          // Choose the equality check based on config.
+          const equalityCheck = config.deepEquality ? deepEqual : Object.is;
+
           // Update only if the value has really changed.
-          if (!Object.is(prop.value, newValue)) {
+          if (!equalityCheck(prop.value, newValue)) {
             prop.value = newValue;
           }
         } else {

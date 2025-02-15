@@ -16,5 +16,8 @@ export { useEffect } from "./hooks/useEffect";
 export { useMemo } from "./hooks/useMemo";
 export { useState } from "./hooks/useState";
 
+// Exporting utility functions
+export { deepEqual } from "./utils/deepEqual";
+
 // Export types
 export type { Store } from "./types";

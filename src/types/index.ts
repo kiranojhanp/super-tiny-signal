@@ -27,6 +27,18 @@ export type Store<T> = T & {
   subscribe: (listener: (state: T) => void) => () => void;
 };
 
+export interface CreateStoreConfig<T> {
+  /**
+   * When true, performs a deep equality check on signal values.
+   * Defaults to false for performance reasons.
+   */
+  deepEquality?: boolean;
+  /**
+   * An optional error handler for subscriber errors.
+   */
+  onSubscriberError?: (error: any, subscriber: (state: T) => void) => void;
+}
+
 /**
  * An interface that every persistence adapter must implement.
  * Both methods return Promises so that all adapters behave uniformly,
