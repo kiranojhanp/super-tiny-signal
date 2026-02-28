@@ -19,16 +19,16 @@ npm install super-tiny-signal
 ## Quick start
 
 ```ts
-import { signal, computed, effect } from "super-tiny-signal";
+import { signal, derived, effect } from "super-tiny-signal";
 
-const count = signal(1);
-const doubled = computed(() => count.value * 2);
+const [count, setCount] = signal(1);
+const doubled = derived(() => count() * 2);
 
 const stop = effect(() => {
-  console.log(`count=${count.value} doubled=${doubled.value}`);
+  console.log(`count=${count()} doubled=${doubled()}`);
 });
 
-count.value = 2;
+setCount(2);
 stop();
 ```
 
@@ -49,19 +49,19 @@ stop();
 ### Reactivity primitives
 
 ```ts
-import { signal, computed, effect, batch } from "super-tiny-signal";
+import { signal, derived, effect, batch } from "super-tiny-signal";
 
-const a = signal(1);
-const b = signal(2);
-const sum = computed(() => a.value + b.value);
+const [a, setA] = signal(1);
+const [b, setB] = signal(2);
+const sum = derived(() => a() + b());
 
 const dispose = effect(() => {
-  console.log("sum", sum.value);
+  console.log("sum", sum());
 });
 
 batch(() => {
-  a.value = 10;
-  b.value = 20;
+  setA(10);
+  setB(20);
 });
 
 dispose();
@@ -73,10 +73,10 @@ dispose();
 import { useState, useMemo, useEffect } from "super-tiny-signal";
 
 const [count, setCount] = useState(0);
-const doubled = useMemo(() => count.value * 2);
+const doubled = useMemo(() => count() * 2);
 
 const stop = useEffect(() => {
-  console.log("doubled", doubled.value);
+  console.log("doubled", doubled());
 });
 
 setCount((prev) => prev + 1);
@@ -101,7 +101,7 @@ const store = createStore(
 );
 
 store.setState({ theme: "dark" });
-console.log(store.theme.value);
+console.log(store.getState().theme);
 ```
 
 ---
@@ -119,6 +119,7 @@ console.log(store.theme.value);
 ```ts
 import {
   signal,
+  derived,
   computed,
   effect,
   batch,

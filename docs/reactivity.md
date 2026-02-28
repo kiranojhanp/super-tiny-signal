@@ -12,11 +12,11 @@ sequenceDiagram
   participant Sig as signal
   participant Q as scheduler queue
 
-  App->>Eff: effect(() => read signal.value)
+  App->>Eff: effect(() => read getter())
   Eff->>Sig: getter tracks active effect
   Sig-->>Eff: dependency registered
 
-  App->>Sig: signal.value = newValue
+  App->>Sig: setSignal(newValue)
   Sig->>Sig: compare old/new (equals)
   Sig->>Q: schedule dependent effects
   Q-->>Eff: flush in microtask (or batch end)
@@ -25,12 +25,12 @@ sequenceDiagram
 
 ## signals
 
-`Signal<T>` is a value container with dependency awareness.
+`signal<T>()` returns a getter/setter tuple with dependency awareness.
 
-- Read (`.value`) from inside an active effect/computed and it records that dependency.
-- Write (`.value = next`) and it schedules all dependent effects.
+- Read (`getter()`) from inside an active effect/computed and it records that dependency.
+- Write (`setter(next)` or `setter(prev => next)`) and it schedules all dependent effects.
 - Comparisons use `Object.is` by default, or a custom `equals` function.
-- `.peek()` reads without tracking.
+- Internally, `Signal<T>.peek()` still reads without tracking.
 
 In short: reads create links, writes trigger reruns.
 
@@ -52,7 +52,7 @@ That batching behavior is what keeps rapid writes from spamming effect execution
 
 - It tracks source dependencies by running with an internal marker effect (`markDirty`).
 - When a source changes, computed becomes dirty.
-- Reading `.value` recomputes if dirty, then returns cached value.
+- Reading `computed.value` recomputes if dirty, then returns cached value.
 - Optional `eager: true` recomputes immediately when dependencies change.
 - Writes are blocked (`Cannot set value of a computed signal`).
 
