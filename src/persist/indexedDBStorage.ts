@@ -18,9 +18,9 @@ export function createIndexedDBStorage(
   version = 1
 ): StorageAdapter {
   return {
-    async getItem(key: string): Promise<any | null> {
+    async getItem(key: string): Promise<unknown | null> {
       const db = await openDB(dbName, storeName, version);
-      return await new Promise<any | null>((resolve, reject) => {
+      return await new Promise<unknown | null>((resolve, reject) => {
         const transaction = db.transaction(storeName, "readonly");
         const objectStore = transaction.objectStore(storeName);
         const request = objectStore.get(key);
@@ -33,7 +33,7 @@ export function createIndexedDBStorage(
         };
       });
     },
-    async setItem(key: string, value: any): Promise<void> {
+    async setItem(key: string, value: unknown): Promise<void> {
       const db = await openDB(dbName, storeName, version);
       return await new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(storeName, "readwrite");

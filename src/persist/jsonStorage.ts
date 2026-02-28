@@ -16,7 +16,7 @@ export function createJSONStorage(
       const item = storageFactory().getItem(key);
       return Promise.resolve(item ? JSON.parse(item) : null);
     },
-    setItem(key: string, value: any) {
+    setItem(key: string, value: unknown) {
       storageFactory().setItem(key, JSON.stringify(value));
       return Promise.resolve();
     },

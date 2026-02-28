@@ -68,6 +68,11 @@ export function persist<T>(
       .then((storedValue) => {
         if (storedValue) {
           try {
+            // storedValue should be a JSON string from the storage adapter
+            if (typeof storedValue !== 'string') {
+              console.error('Expected stored value to be a string, got:', typeof storedValue);
+              return;
+            }
             const parsed = JSON.parse(storedValue);
 
             // Handle both old format (direct state) and new format (with version)

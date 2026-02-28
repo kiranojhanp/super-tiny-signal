@@ -6,17 +6,20 @@ import { Signal } from "../core/signal.js";
 
 export type EqualsFn<T> = (a: T, b: T) => boolean;
 
+/**
+ * A reactive effect that can be disposed.
+ */
 export interface ReactiveEffect {
   (): void;
   disposed?: boolean;
-  dependencies?: Set<Signal<any>>;
+  dependencies?: Set<Signal<unknown>>;
 }
 
 /**
  * An internal type for our effect runner that includes dependency tracking.
  */
 export type EffectRunner = ReactiveEffect & {
-  dependencies: Set<Signal<any>>;
+  dependencies: Set<Signal<unknown>>;
 };
 
 /**
@@ -44,9 +47,29 @@ export interface CreateStoreConfig<T> {
    */
   deepEquality?: boolean;
   /**
-   * An optional error handler for subscriber errors.
+   * Optional error handler for subscriber errors.
    */
-  onSubscriberError?: (error: any, subscriber: (state: T) => void) => void;
+  onSubscriberError?: (error: unknown, subscriber: (state: T) => void) => void;
+}
+
+export interface ComputedOptions<T> {
+  eager?: boolean;
+  equals?: EqualsFn<T>;
+  dependencies: Set<Signal<unknown>>;
+}
+
+/**
+ * Subscription callback for state changes.
+ */
+export type Subscriber<T> = (state: T) => void;
+
+/**
+ * Disposal function returned from effects and subscriptions.
+ */
+export type Dispose = () => void;
+
+export interface StoreConfig<T> {
+  onSubscriberError?: (error: unknown, subscriber: (state: T) => void) => void;
 }
 
 /**
@@ -54,15 +77,13 @@ export interface CreateStoreConfig<T> {
  * Both methods return Promises so that all adapters behave uniformly,
  * even if the underlying storage is synchronous.
  */
-export type StorageAdapter = {
-  getItem(key: string): Promise<any | null>;
-  setItem(key: string, value: any): Promise<void>;
-};
+export interface StorageAdapter {
+  getItem(key: string): Promise<unknown | null>;
+  setItem(key: string, value: unknown): Promise<void>;
+  removeItem?(key: string): Promise<void>;
+}
 
-/**
- * Persistence options required by the persist middleware.
- */
-export interface PersistenceOptions<T = any> {
+export interface PersistenceOptions<T = unknown> {
   /** Unique key under which the state is stored */
   name: string;
   /** Storage adapter (localStorage, IndexedDB, etc.) */

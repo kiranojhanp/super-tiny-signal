@@ -1,15 +1,20 @@
-import { computed } from "../core/computed.js";
+import { computed, Computed } from "../core/computed.js";
+import type { EqualsFn } from "../types/index.js";
 
 /**
- * useMemo hook: returns a memoized value that updates when its reactive dependencies change.
+ * useMemo hook: returns a computed signal that memoizes the result of a computation.
  * 
- * This hook uses computed signals internally, which means the value is computed synchronously
- * on first access and automatically updates when any reactive dependencies change.
+ * The computed value is lazy (recomputed on access if dependencies changed) and automatically
+ * updates when any reactive dependencies change.
  * 
  * @param fn - The computation function that derives the memoized value
- * @returns The computed value
+ * @param options - Optional configuration: eager mode and custom equality function
+ * @returns A computed signal holding the memoized value
  */
-export function useMemo<T>(fn: () => T): T {
-  const comp = computed(fn);
-  return comp.value;
+export function useMemo<T>(
+  fn: () => T,
+  options?: { eager?: boolean; equals?: EqualsFn<T> }
+): Computed<T> {
+  return computed(fn, options);
 }
+

@@ -40,7 +40,19 @@ export class Signal<T> {
         if (effect.disposed) {
           this.removeEffect(effect);
         } else {
-          scheduleEffect(effect);
+          // Check if effect is marked as synchronous-only (for computed signals)
+          const isSyncOnly = (effect as unknown as {sync?: boolean}).sync;
+          if (isSyncOnly) {
+            // Call synchronously only, don't schedule
+            try {
+              effect();
+            } catch (error) {
+              console.error("Error in synchronous effect:", error);
+            }
+          } else {
+            // Normal effects are scheduled asynchronously
+            scheduleEffect(effect);
+          }
         }
       }
     }
@@ -69,7 +81,7 @@ export class Signal<T> {
     if (!effect.dependencies) {
       effect.dependencies = new Set();
     }
-    effect.dependencies.add(this);
+    effect.dependencies.add(this as Signal<unknown>);
   }
 
   /**
@@ -77,7 +89,7 @@ export class Signal<T> {
    */
   public removeEffect(effect: ReactiveEffect): void {
     this._effects.delete(effect);
-    effect.dependencies?.delete(this);
+    effect.dependencies?.delete(this as Signal<unknown>);
   }
 }
 
