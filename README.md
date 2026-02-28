@@ -1,229 +1,305 @@
-# Super Tiny Signal
+# super-tiny-signal
 
-**Super Tiny Signal** is a minimal and lightweight reactive state management library for modern JavaScript applications. It provides a simple yet effective way to manage application state using signals and stores.
+Tiny, predictable reactivity for production apps.
 
-[![npm version](https://badge.fury.io/js/super-tiny-signal.svg)](https://www.npmjs.com/package/super-tiny-signal)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+`super-tiny-signal` gives you fine-grained reactive primitives (`signal`, `computed`, `effect`) plus ergonomic helpers (`createStore`, `useState`, `useMemo`, `useEffect`) and optional persistence middleware.
 
-## Introduction
+It is framework-agnostic, TypeScript-first, and built for deterministic behavior.
 
-Super Tiny Signal is a reactive state management library designed for simplicity and performance. It offers core primitives for reactivity – Signals, Computed Signals, Effects, and Stores – to manage state in JavaScript applications with minimal overhead.
-
-**Key Features:**
-
-- **Minimal and Lightweight:** Small size, focused on core reactivity.
-- **Signal-Based Reactivity:** Utilizes Signals for fine-grained dependency tracking.
-- **Efficient Updates:** Optimized updates, triggering only necessary effects.
-- **Persistence Support:** Built-in middleware for state persistence using storage adapters.
-- **Simple API:** Easy-to-learn and use API for quick integration.
-- **Modern JavaScript:** Built with modern JavaScript standards.
-- **TypeScript Support:** Provides strong typing and improved development experience.
-
-## Installation
-
-Install using npm, bun or yarn:
+## Install
 
 ```bash
 npm install super-tiny-signal
 ```
 
-```bash
-bun add super-tiny-signal
-```
+## 60-second quick start
 
-```bash
-yarn add super-tiny-signal
-```
+```ts
+import { signal, computed, effect } from "super-tiny-signal";
 
-## Core Concepts
+const count = signal(1);
+const doubled = computed(() => count.value * 2);
 
-### Signals
-
-Signals hold values and notify dependent effects on value changes.
-
-```javascript
-import { signal } from "super-tiny-signal";
-const count = signal(0);
-console.log(count.value); // Output: 0
-count.value = 1;
-```
-
-### Computed Signals
-
-Computed signals derive values from computations based on other signals, updating automatically.
-
-```javascript
-import { signal, computed } from "super-tiny-signal";
-const price = signal(10);
-const quantity = signal(2);
-const total = computed(() => price.value * quantity.value);
-console.log(total.value); // Output: 20
-quantity.value = 3; // total updates
-```
-
-### Effects
-
-Effects perform side effects in response to signal changes, automatically tracking dependencies.
-
-```javascript
-import { signal, effect } from "super-tiny-signal";
-const name = signal("World");
-effect(() => {
-  console.log(`Hello, ${name.value}!`);
+const dispose = effect(() => {
+  console.log("count:", count.value, "doubled:", doubled.value);
 });
-name.value = "Universe"; // Effect re-runs
+
+count.value = 2; // logs updated values
+
+dispose(); // stop reacting
 ```
 
-### Stores
+## Core primitives
 
-Stores structure complex application state, built on signals with APIs for state management and subscriptions.
+### `signal(initialValue, options?)`
 
-```javascript
+Create a reactive value.
+
+```ts
+import { signal } from "super-tiny-signal";
+
+const name = signal("Ada");
+name.value = "Grace";
+
+const custom = signal(
+  { x: 1, y: 2 },
+  {
+    equals: (a, b) => a.x === b.x && a.y === b.y,
+  }
+);
+```
+
+### `computed(fn, options?)`
+
+Create derived reactive state. It is lazy by default, with optional eager mode.
+
+```ts
+import { signal, computed } from "super-tiny-signal";
+
+const price = signal(100);
+const taxRate = signal(0.2);
+
+const total = computed(() => price.value * (1 + taxRate.value));
+console.log(total.value); // 120
+```
+
+### `effect(fn)`
+
+Run a side effect that auto-tracks dependencies. Returns a disposer.
+
+```ts
+import { signal, effect } from "super-tiny-signal";
+
+const online = signal(false);
+
+const stop = effect(() => {
+  document.body.dataset.online = String(online.value);
+});
+
+online.value = true;
+stop();
+```
+
+### `batch(fn)`
+
+Batch multiple writes and flush effects once.
+
+```ts
+import { signal, batch, effect } from "super-tiny-signal";
+
+const a = signal(1);
+const b = signal(2);
+
+effect(() => {
+  console.log(a.value + b.value);
+});
+
+batch(() => {
+  a.value = 10;
+  b.value = 20;
+});
+```
+
+## Hook-like helpers
+
+These are plain-function utilities, not tied to React.
+
+### `useState(initialValue)`
+
+```ts
+import { useState } from "super-tiny-signal";
+
+const [count, setCount] = useState(0);
+setCount(1);
+setCount((prev) => prev + 1);
+```
+
+### `useMemo(fn, options?)`
+
+Returns a computed signal.
+
+```ts
+import { useMemo, signal } from "super-tiny-signal";
+
+const items = signal([1, 2, 3]);
+const total = useMemo(() => items.value.reduce((s, n) => s + n, 0));
+
+console.log(total.value);
+```
+
+### `useEffect(fn)`
+
+Supports cleanup on rerun and disposal.
+
+```ts
+import { useEffect, signal } from "super-tiny-signal";
+
+const query = signal("initial");
+
+const dispose = useEffect(() => {
+  const controller = new AbortController();
+
+  fetch(`/search?q=${query.value}`, { signal: controller.signal });
+
+  return () => controller.abort();
+});
+
+dispose();
+```
+
+## Store API
+
+`createStore` builds a signal-backed store with immutable methods and subscription support.
+
+```ts
 import { createStore } from "super-tiny-signal";
-interface CounterStore {
-  count: number;
-  increment: () => void;
-}
-const counterStore =
-  createStore <
-  CounterStore >
-  ((set, get) => ({
-    count: 0,
-    increment: () => set({ count: get().count + 1 }),
-  }));
-console.log(counterStore.getState().count); // Output: 0
-counterStore.increment();
+
+const store = createStore((set, get) => ({
+  count: 0,
+  label: "counter",
+  inc: () => set({ count: get().count + 1 }),
+  reset: () => set({ count: 0 }),
+}));
+
+store.inc();
+console.log(store.count.value); // 1
+
+const unsubscribe = store.subscribe((state) => {
+  console.log("state changed:", state);
+});
+
+store.setState({ label: "main" });
+unsubscribe();
 ```
 
-### Persistence
+### Store notes
 
-Persistence middleware enables automatic saving and loading of store state using storage adapters.
+- Non-function state fields are wrapped as signals (`store.field.value`).
+- Function fields become immutable store methods.
+- Reserved state keys are blocked: `getState`, `setState`, `subscribe`.
 
-**Key Persistence Features:**
+## Persistence
 
-- Automatic state saving on updates.
-- State loading on application initialization.
-- Pluggable storage adapters (localStorage, IndexedDB included).
-- Simple integration via `persist` middleware.
+Use `persist` middleware with `createStore`.
 
-**Example: localStorage Persistence**
-
-```javascript
-import { createStore, persist, createJSONStorage } from "super-tiny-signal";
-interface CounterStore {
-  count: number;
-  increment: () => void;
-}
-const counterStore =
-  createStore <
-  CounterStore >
-  persist(
-    (set, get) => ({
-      /* ... initializer ... */
-    }),
-    { name: "counter-store", storage: createJSONStorage(() => localStorage) }
-  );
-```
-
-**Example: IndexedDB Persistence**
-
-```javascript
+```ts
 import {
   createStore,
   persist,
-  createIndexedDBStorage,
+  createJSONStorage,
 } from "super-tiny-signal";
-// ... interface CounterStore ...
-const counterStore =
-  createStore <
-  CounterStore >
+
+const storage = createJSONStorage(() => localStorage);
+
+const store = createStore(
   persist(
-    (set, get) => ({
-      /* ... initializer ... */
+    () => ({
+      theme: "light",
+      sidebarOpen: true,
     }),
     {
-      name: "counter-store-indexeddb",
-      storage: createIndexedDBStorage("myDatabase", "counterStore"),
+      name: "app-settings",
+      storage,
+      version: 1,
+      onHydrated: (state) => {
+        console.log("hydrated", state);
+      },
+      onError: (error, operation) => {
+        console.error("persist", operation, error);
+      },
     }
-  );
+  )
+);
 ```
 
-## API Reference
+IndexedDB adapter:
 
-### `signal<T>(initialValue: T, options?: { equals?: EqualsFn<T> }): Signal<T>`
+```ts
+import { createIndexedDBStorage } from "super-tiny-signal";
 
-Creates a signal.
-
-### `computed<T>(computeFn: () => T, options?: { eager?: boolean; equals?: EqualsFn<T> }): Computed<T>`
-
-Creates a computed signal.
-
-### `effect(fn: () => void): () => void`
-
-Registers a reactive effect. Returns a disposal function.
-
-### `createStore<T extends Record<string, any>>(initializer: (set: SetState<T>, get: () => T) => T, config?: CreateStoreConfig<T>): Store<T>`
-
-Creates a reactive store.
-
-### `persist<T>(initializer: (set: SetState<T>, get: GetState<T>) => T, options: PersistenceOptions): (set: SetState<T>, get: GetState<T>) => T`
-
-Persistence middleware.
-
-### `createJSONStorage(storageFactory: () => Storage): StorageAdapter`
-
-Creates a JSON-based `StorageAdapter`.
-
-### `createIndexedDBStorage(dbName: string, storeName: string): StorageAdapter`
-
-Creates an IndexedDB `StorageAdapter`.
-
-### `Signal<T>` Class
-
-- `.value`: Get/set signal value (tracks dependencies in effects).
-- `.peek()`: Get value without dependency tracking.
-- `.toString()`: Implicit string conversion.
-
-### `Computed<T> extends Signal<T>` Class
-
-- Extends `Signal<T>`.
-- `.value`: (Read-only) Get computed value (triggers re-computation).
-- `.peek()`: Get computed value without dependency tracking.
-
-### `StorageAdapter` Interface
-
-```typescript
-interface StorageAdapter {
-  getItem(key: string): Promise<any | null>;
-  setItem(key: string, value: any): Promise<void>;
-}
+const indexed = createIndexedDBStorage({
+  dbName: "app-db",
+  storeName: "keyval",
+});
 ```
 
-### `PersistenceOptions` Interface
+## API surface
 
-```typescript
-interface PersistenceOptions {
-  name: string;
-  storage: StorageAdapter;
-}
+```ts
+import {
+  signal,
+  computed,
+  effect,
+  batch,
+  createStore,
+  persist,
+  createJSONStorage,
+  createIndexedDBStorage,
+  useState,
+  useMemo,
+  useEffect,
+  deepEqual,
+} from "super-tiny-signal";
 ```
 
-## Contributing
+<details>
+<summary><strong>Advanced: core reactive flow (Mermaid diagram)</strong></summary>
 
-Contributions are welcome. For suggestions, bug reports, or code contributions, please open an issue or pull request.
+```mermaid
+flowchart TD
+  W[Signal write] --> EQ{equals old/new?}
+  EQ -->|yes| NOOP[No-op]
+  EQ -->|no| SET[Set signal value]
+  SET --> DIRTY[Mark dependent computeds dirty synchronously]
+  DIRTY --> QUEUE[Queue dependent effects]
+  QUEUE --> FLUSH[Effect scheduler flush]
+  FLUSH --> RUN[Run effect]
+  RUN --> TRACK[Track accessed signals/computeds]
+  TRACK --> NEXT[Future writes trigger only tracked dependencies]
+
+  READ[Computed read] --> CHK{Dirty?}
+  CHK -->|no| CACHE[Return cached value]
+  CHK -->|yes| RECOMP[Recompute + refresh dependencies]
+  RECOMP --> CACHE
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced: consistency and safety guarantees</strong></summary>
+
+- Computed invalidation is synchronous, so immediate reads after writes see fresh values.
+- Effects are scheduled and flushed with loop protection to avoid runaway recursion.
+- Dependency tracking is dynamic: unused branches are unsubscribed on recompute.
+- Equality defaults to `Object.is` and can be overridden per signal/computed.
+- Store subscriber errors can be handled via `onSubscriberError` config.
+
+</details>
+
+<details>
+<summary><strong>Advanced: behavior notes and pitfalls</strong></summary>
+
+- `useState` treats function arguments in setter form as updater functions.
+- `persist` stores `{ state, version }` metadata under the configured key.
+- Persistence adapters are async by contract, even when underlying storage is sync.
+- For unsupported JSON values (for example circular references), handle errors via `onError`.
+
+</details>
+
+## Production checklist
+
+- Use strict TypeScript mode in your app.
+- Add app-level tests around your critical reactive flows.
+- Prefer deterministic tests (`flush`-driven) over timer windows.
+- Use custom `equals` only when you fully understand its invalidation impact.
+
+## Development
+
+```bash
+npm run build
+bun test
+```
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Further Development
-
-- More documentation and examples.
-- Unit and integration tests.
-- Performance optimizations.
-- Middleware/plugin extensions.
-- Additional storage adapters.
-
----
-
-Thank you for using Super Tiny Signal.
+MIT
