@@ -4,8 +4,7 @@ Tiny, framework-agnostic reactivity for TypeScript apps.
 
 If you want signal-style state without pulling in a full UI framework, this is for you.
 
-[![npm version](https://img.shields.io/npm/v/super-tiny-signal.svg)](https://www.npmjs.com/package/super-tiny-signal)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/super-tiny-signal.svg)](https://www.npmjs.com/package/super-tiny-signal) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
@@ -68,7 +67,7 @@ batch(() => {
 dispose();
 ```
 
-### Hook-style helpers (not React-specific)
+### Hook-style helpers (Framework Agnostic)
 
 ```ts
 import { useState, useMemo, useEffect } from "super-tiny-signal";
@@ -97,8 +96,8 @@ const store = createStore(
       count: 0,
       theme: "light",
     }),
-    { name: "counter", storage, version: 1 }
-  )
+    { name: "counter", storage, version: 1 },
+  ),
 );
 
 store.setState({ theme: "dark" });
