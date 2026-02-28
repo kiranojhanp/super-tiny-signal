@@ -1,8 +1,8 @@
-import { activeEffects, scheduleEffect } from "./effect";
-import { Signal } from "./signal";
+import { activeEffects, scheduleEffect } from "./effect.js";
+import { Signal } from "./signal.js";
 
-import type { EqualsFn } from "../types";
-import { defaultEquals } from "../utils/equality";
+import type { EqualsFn } from "../types/index.js";
+import { defaultEquals } from "../utils/equality.js";
 
 /***
  * ====================================================

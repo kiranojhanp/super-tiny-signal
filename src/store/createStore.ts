@@ -1,8 +1,8 @@
-import { scheduleEffect } from "../core/effect";
-import { signal, Signal } from "../core/signal";
-import { deepEqual } from "../utils/equality";
+import { scheduleEffect } from "../core/effect.js";
+import { signal, Signal } from "../core/signal.js";
+import { deepEqual } from "../utils/equality.js";
 
-import type { CreateStoreConfig, SetState, Store } from "../types";
+import type { CreateStoreConfig, SetState, Store } from "../types/index.js";
 
 /**
  * Checks if a value is a signal.
@@ -128,9 +128,23 @@ export function createStore<T extends Record<string, any>>(
     scheduleNotify();
   };
 
+  // Reserved property names that cannot be used in store state
+  const RESERVED_PROPERTIES = new Set(['getState', 'setState', 'subscribe']);
+
   // Initialize state using the initializer.
   // Non-function properties are wrapped in signals.
   const initialState = initializer(set, getState);
+  
+  // Validate property names
+  for (const key of Object.keys(initialState)) {
+    if (RESERVED_PROPERTIES.has(key)) {
+      throw new Error(
+        `Cannot use reserved property name "${key}" in store state. ` +
+        `Reserved names are: ${Array.from(RESERVED_PROPERTIES).join(', ')}`
+      );
+    }
+  }
+  
   store = Object.fromEntries(
     Object.entries(initialState).map(([key, value]) => [
       key,

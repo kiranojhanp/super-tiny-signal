@@ -1,4 +1,4 @@
-import { StorageAdapter } from "../types";
+import { StorageAdapter } from "../types/index.js";
 
 /**
  * createJSONStorage wraps an underlying storage (which can be synchronous

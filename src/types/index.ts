@@ -1,4 +1,4 @@
-import { Signal } from "../core/signal";
+import { Signal } from "../core/signal.js";
 
 // ──────────────────────────────────────────────────────────────
 // Type Definitions & Interfaces

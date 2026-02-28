@@ -1,4 +1,4 @@
-import type { EqualsFn } from "../types";
+import type { EqualsFn } from "../types/index.js";
 
 /**
  * Deep equality check for objects and arrays.

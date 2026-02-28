@@ -1,4 +1,4 @@
-import type { EffectRunner, ReactiveEffect } from "../types";
+import type { EffectRunner, ReactiveEffect } from "../types/index.js";
 
 // Active effects stack.
 export const activeEffects: ReactiveEffect[] = [];
