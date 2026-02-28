@@ -185,7 +185,9 @@ describe("Infinite loop protection", () => {
       }
     } catch (error) {
       errorThrown = true;
-      expect((error as Error).message).toContain("exceeded maximum iterations");
+      expect((error as Error).message).toMatch(
+        /^Effect flush exceeded maximum iterations \(100\)\./
+      );
     }
 
     expect(errorThrown).toBe(true);
@@ -198,24 +200,36 @@ describe("Edge Cases", () => {
     const shouldError = signal(false);
     const count = signal(0);
     let successfulRuns = 0;
+    const originalConsoleError = console.error;
+    const consoleErrors: unknown[][] = [];
+    console.error = (...args: unknown[]) => {
+      consoleErrors.push(args);
+    };
     
-    // Errors are logged but don't propagate
-    effect(() => {
-      if (shouldError.value) {
-        throw new Error("Effect error");
-      }
-      count.value;
-      successfulRuns++;
-    });
-    
-    expect(successfulRuns).toBe(1);
-    
-    // Trigger error - should be logged but caught
-    shouldError.value = true;
-    await flushEffects();
-    
-    // Effect continues to run despite the error
-    expect(successfulRuns).toBe(1);
+    try {
+      // Errors are logged but don't propagate
+      effect(() => {
+        if (shouldError.value) {
+          throw new Error("Effect error");
+        }
+        count.value;
+        successfulRuns++;
+      });
+
+      expect(successfulRuns).toBe(1);
+
+      // Trigger error - should be logged but caught
+      shouldError.value = true;
+      await flushEffects();
+
+      // Effect continues to run despite the error
+      expect(successfulRuns).toBe(1);
+      expect(consoleErrors).toHaveLength(1);
+      expect(String(consoleErrors[0]?.[0])).toBe("Error running effect:");
+      expect((consoleErrors[0]?.[1] as Error).message).toBe("Effect error");
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 
   test("should handle nested effects", async () => {
@@ -240,9 +254,9 @@ describe("Edge Cases", () => {
     outer.value = 2;
     await flushEffects();
     
-    // Outer runs again and creates a new nested effect
+    // Outer runs again and creates exactly one new nested effect
     expect(outerRuns).toBe(2);
-    expect(innerRuns).toBeGreaterThanOrEqual(2);
+    expect(innerRuns).toBe(2);
   });
 
   test("should handle effects that modify multiple signals", async () => {
@@ -264,8 +278,7 @@ describe("Edge Cases", () => {
     await flushEffects();
     
     expect(c.value).toBe(12);
-    // Effect might run multiple times due to c changing
-    expect(runs).toBeGreaterThanOrEqual(2);
+    expect(runs).toBe(2);
   });
 
   test("should handle effect disposal", async () => {
@@ -412,9 +425,7 @@ describe("Edge Cases", () => {
     await flushEffects();
     
     expect(lastValue).toBe(100);
-    // Should batch some updates
-    expect(runs).toBeGreaterThan(1);
-    expect(runs).toBeLessThan(102); // Should not run for every update
+    expect(runs).toBe(2);
   });
 
   test("should handle effect disposing itself", async () => {
@@ -521,10 +532,11 @@ describe("Edge Cases", () => {
     
     await flushEffects();
     
-    // Wait for async operations
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
-    expect(results.length).toBeGreaterThan(0);
+    // Flush Promise callbacks created by the effect runs
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(results).toEqual([0, 3]);
   });
 
   test("should handle accessing same signal multiple times in effect", async () => {

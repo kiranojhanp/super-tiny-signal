@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { computed } from "../../src/core/computed.js";
 import { signal } from "../../src/core/signal.js";
-import { effect } from "../../src/core/effect.js";
+import { effect, flushEffects } from "../../src/core/effect.js";
 
 describe("Computed", () => {
   test("should compute initial value synchronously", () => {
@@ -39,7 +39,7 @@ describe("Computed", () => {
     expect(sum.value).toBe(30);
   });
 
-  test("should notify effects when computed value changes", () => {
+  test("should notify effects when computed value changes", async () => {
     const count = signal(5);
     const doubled = computed(() => count.value * 2);
     let effectRuns = 0;
@@ -55,13 +55,9 @@ describe("Computed", () => {
     
     count.value = 10;
     
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        expect(effectRuns).toBe(2);
-        expect(lastValue).toBe(20);
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+    expect(effectRuns).toBe(2);
+    expect(lastValue).toBe(20);
   });
 
   test("should not recompute if dependencies don't change", () => {
@@ -97,7 +93,7 @@ describe("Computed", () => {
     expect(quadrupled.value).toBe(20);
   });
 
-  test("should support eager mode", () => {
+  test("should support eager mode", async () => {
     let computations = 0;
     const count = signal(5);
     const doubled = computed(() => {
@@ -111,14 +107,10 @@ describe("Computed", () => {
     
     count.value = 10;
     
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // In eager mode, should recompute immediately when dependency changes
-        expect(computations).toBe(2);
-        expect(doubled.value).toBe(20);
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+    // In eager mode, should recompute when dependency changes
+    expect(computations).toBe(2);
+    expect(doubled.value).toBe(20);
   });
 
   test("should throw error when trying to set computed value", () => {
@@ -278,7 +270,7 @@ describe("Computed", () => {
       expect(current.value).toBe(60);
     });
 
-    test("should handle switching between lazy and eager mode", () => {
+    test("should handle switching between lazy and eager mode", async () => {
       let lazyComputations = 0;
       let eagerComputations = 0;
       
@@ -304,20 +296,15 @@ describe("Computed", () => {
       
       count.value = 10;
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          // Eager should have recomputed
-          expect(eagerComputations).toBe(2);
-          // Lazy should still be dirty
-          expect(lazyComputations).toBe(1);
-          
-          // Access lazy to trigger recomputation
-          expect(lazy.value).toBe(20);
-          expect(lazyComputations).toBe(2);
-          
-          resolve(undefined);
-        }, 10);
-      });
+      await flushEffects();
+      // Eager should have recomputed
+      expect(eagerComputations).toBe(2);
+      // Lazy should still be dirty
+      expect(lazyComputations).toBe(1);
+
+      // Access lazy to trigger recomputation
+      expect(lazy.value).toBe(20);
+      expect(lazyComputations).toBe(2);
     });
 
     test("should handle null and undefined in computations", () => {
@@ -403,7 +390,7 @@ describe("Computed", () => {
       expect(sideEffectRan).toBe(2);
     });
 
-    test("should handle equality function in computed options", () => {
+    test("should handle equality function in computed options", async () => {
       const obj = signal({ x: 1, y: 2 });
       let computations = 0;
       
@@ -438,13 +425,9 @@ describe("Computed", () => {
       
       obj.value = { x: 1, y: 200 };
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          // Effect still runs because computed returns new object each time
-          expect(effectRuns).toBe(2);
-          resolve(undefined);
-        }, 10);
-      });
+      await flushEffects();
+      // Effect still runs because computed returns new object each time
+      expect(effectRuns).toBe(2);
     });
 
     test("should handle errors in equality function", () => {
@@ -530,7 +513,7 @@ describe("Computed", () => {
       expect(computations).toBe(1); // Should not recompute
     });
 
-    test("should handle computed signal used in multiple effects", () => {
+    test("should handle computed signal used in multiple effects", async () => {
       const count = signal(1);
       const doubled = computed(() => count.value * 2);
       
@@ -552,20 +535,12 @@ describe("Computed", () => {
       
       count.value = 5;
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          // Both effects should have run at least once more
-          expect(effect1Runs).toBeGreaterThanOrEqual(2);
-          expect(effect2Runs).toBeGreaterThanOrEqual(2);
-          // They might run more than once in some edge cases, but should be reasonable
-          expect(effect1Runs).toBeLessThanOrEqual(3);
-          expect(effect2Runs).toBeLessThanOrEqual(3);
-          resolve(undefined);
-        }, 20);
-      });
+      await flushEffects();
+      // Current implementation may schedule one additional rerun for one subscriber.
+      expect([effect1Runs, effect2Runs].sort((a, b) => a - b)).toEqual([2, 3]);
     });
 
-    test("should handle disposal of effects watching computed signals", () => {
+    test("should handle disposal of effects watching computed signals", async () => {
       const count = signal(1);
       const doubled = computed(() => count.value * 2);
       
@@ -581,12 +556,8 @@ describe("Computed", () => {
       
       count.value = 5;
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          expect(effectRuns).toBe(1); // Should not run after disposal
-          resolve(undefined);
-        }, 10);
-      });
+      await flushEffects();
+      expect(effectRuns).toBe(1); // Should not run after disposal
     });
 
     test("should handle synchronous chains with immediate access", () => {

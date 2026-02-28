@@ -295,54 +295,79 @@ describe("Edge Cases", () => {
       
       count.value = 1;
       await flushEffects();
-      
-      // Wait for async cleanup
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      expect(cleanups).toContain(0);
+
+      // Flush microtasks from Promise.resolve inside cleanup
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(cleanups).toEqual([0]);
     });
 
     test("should handle errors in effect function", async () => {
       const shouldError = signal(false);
       let successfulRuns = 0;
+      const originalConsoleError = console.error;
+      const consoleErrors: unknown[][] = [];
+      console.error = (...args: unknown[]) => {
+        consoleErrors.push(args);
+      };
       
-      useEffect(() => {
-        if (shouldError.value) {
-          throw new Error("Effect error");
-        }
-        successfulRuns++;
-      });
-      
-      expect(successfulRuns).toBe(1);
-      
-      shouldError.value = true;
-      await flushEffects();
-      
-      // Error is logged but doesn't stop the effect system
-      expect(successfulRuns).toBe(1);
+      try {
+        useEffect(() => {
+          if (shouldError.value) {
+            throw new Error("Effect error");
+          }
+          successfulRuns++;
+        });
+
+        expect(successfulRuns).toBe(1);
+
+        shouldError.value = true;
+        await flushEffects();
+
+        // Error is logged but doesn't stop the effect system
+        expect(successfulRuns).toBe(1);
+        expect(consoleErrors).toHaveLength(1);
+        expect(String(consoleErrors[0]?.[0])).toBe("Error running effect:");
+        expect((consoleErrors[0]?.[1] as Error).message).toBe("Effect error");
+      } finally {
+        console.error = originalConsoleError;
+      }
     });
 
     test("should handle errors in cleanup function", async () => {
       const count = signal(0);
       let shouldError = false;
+      const originalConsoleError = console.error;
+      const consoleErrors: unknown[][] = [];
+      console.error = (...args: unknown[]) => {
+        consoleErrors.push(args);
+      };
       
-      useEffect(() => {
-        count.value;
-        return () => {
-          if (shouldError) {
-            throw new Error("Cleanup error");
-          }
-        };
-      });
-      
-      shouldError = true;
-      count.value = 1;
-      
-      // Cleanup error should be caught and logged
-      await flushEffects();
-      
-      // Effect should still work
-      expect(count.value).toBe(1);
+      try {
+        useEffect(() => {
+          count.value;
+          return () => {
+            if (shouldError) {
+              throw new Error("Cleanup error");
+            }
+          };
+        });
+
+        shouldError = true;
+        count.value = 1;
+
+        // Cleanup error should be caught and logged
+        await flushEffects();
+
+        // Effect should still work
+        expect(count.value).toBe(1);
+        expect(consoleErrors).toHaveLength(1);
+        expect(String(consoleErrors[0]?.[0])).toBe("Error running effect:");
+        expect((consoleErrors[0]?.[1] as Error).message).toBe("Cleanup error");
+      } finally {
+        console.error = originalConsoleError;
+      }
     });
 
     test("should handle cleanup on disposal even without dependencies", () => {

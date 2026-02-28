@@ -174,7 +174,7 @@ describe("Store Edge Cases", () => {
     store.count.value = 1;
     await flushEffects();
     
-    expect(subscriptionRuns).toBeGreaterThan(0);
+    expect(subscriptionRuns).toBe(2);
     expect(store.count.value).toBe(100);
   });
 
@@ -244,18 +244,18 @@ describe("Store Edge Cases", () => {
     store.count.value = 5;
     await flushEffects();
     
-    expect(updates1).toContain(5);
-    expect(updates2).toContain(5);
-    expect(updates3).toContain(5);
+    expect(updates1).toEqual([5]);
+    expect(updates2).toEqual([5]);
+    expect(updates3).toEqual([5]);
     
     unsub2();
     
     store.count.value = 10;
     await flushEffects();
     
-    expect(updates1).toContain(10);
-    expect(updates2).not.toContain(10); // Unsubscribed
-    expect(updates3).toContain(10);
+    expect(updates1).toEqual([5, 10]);
+    expect(updates2).toEqual([5]); // Unsubscribed
+    expect(updates3).toEqual([5, 10]);
     
     unsub1();
     unsub3();
@@ -272,7 +272,7 @@ describe("Store Edge Cases", () => {
     store.count.value = 1;
     await flushEffects();
     
-    expect(updates).toContain(1);
+    expect(updates).toEqual([1]);
     
     unsubscribe();
     unsubscribe(); // Should be safe to call multiple times
@@ -281,31 +281,43 @@ describe("Store Edge Cases", () => {
     store.count.value = 2;
     await flushEffects();
     
-    expect(updates).not.toContain(2);
+    expect(updates).toEqual([1]);
   });
 
   test("should handle errors in subscriber callbacks", async () => {
     const store = createStore(() => ({ count: 0 }));
     let shouldError = false;
     let successfulCalls = 0;
+    const originalConsoleError = console.error;
+    const consoleErrors: unknown[][] = [];
+    console.error = (...args: unknown[]) => {
+      consoleErrors.push(args);
+    };
     
-    store.subscribe(() => {
-      if (shouldError) {
-        throw new Error("Subscriber error");
-      }
-      successfulCalls++;
-    });
-    
-    store.count.value = 1;
-    await flushEffects();
-    expect(successfulCalls).toBe(1);
-    
-    shouldError = true;
-    store.count.value = 2;
-    await flushEffects();
-    
-    // Error should be caught and logged
-    expect(successfulCalls).toBe(1);
+    try {
+      store.subscribe(() => {
+        if (shouldError) {
+          throw new Error("Subscriber error");
+        }
+        successfulCalls++;
+      });
+
+      store.count.value = 1;
+      await flushEffects();
+      expect(successfulCalls).toBe(1);
+
+      shouldError = true;
+      store.count.value = 2;
+      await flushEffects();
+
+      // Error should be caught and logged
+      expect(successfulCalls).toBe(1);
+      expect(consoleErrors).toHaveLength(1);
+      expect(String(consoleErrors[0]?.[0])).toBe("Error in store subscriber:");
+      expect((consoleErrors[0]?.[1] as Error).message).toBe("Subscriber error");
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 
   test("should handle very large stores", () => {

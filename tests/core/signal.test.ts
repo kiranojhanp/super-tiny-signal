@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { signal } from "../../src/core/signal.js";
-import { effect } from "../../src/core/effect.js";
+import { effect, flushEffects } from "../../src/core/effect.js";
 
 describe("Signal", () => {
   test("should create a signal with initial value", () => {
@@ -14,7 +14,7 @@ describe("Signal", () => {
     expect(count.value).toBe(5);
   });
 
-  test("should notify effects when value changes", () => {
+  test("should notify effects when value changes", async () => {
     const count = signal(0);
     let effectRuns = 0;
     let lastValue = 0;
@@ -30,17 +30,13 @@ describe("Signal", () => {
 
     count.value = 10;
     
-    // Wait for microtask to flush
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        expect(effectRuns).toBe(2);
-        expect(lastValue).toBe(10);
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+
+    expect(effectRuns).toBe(2);
+    expect(lastValue).toBe(10);
   });
 
-  test("should not notify effects when value doesn't change", () => {
+  test("should not notify effects when value doesn't change", async () => {
     const count = signal(5);
     let effectRuns = 0;
 
@@ -54,15 +50,11 @@ describe("Signal", () => {
     // Set to same value
     count.value = 5;
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        expect(effectRuns).toBe(1); // Should not run again
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+    expect(effectRuns).toBe(1); // Should not run again
   });
 
-  test("should use custom equality function", () => {
+  test("should use custom equality function", async () => {
     const obj = signal({ x: 1 }, { equals: (a, b) => a.x === b.x });
     let effectRuns = 0;
 
@@ -76,15 +68,11 @@ describe("Signal", () => {
     // Different object, same x value
     obj.value = { x: 1 };
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        expect(effectRuns).toBe(1); // Should not run due to custom equality
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+    expect(effectRuns).toBe(1); // Should not run due to custom equality
   });
 
-  test("should remove disposed effects", () => {
+  test("should remove disposed effects", async () => {
     const count = signal(0);
     let effectRuns = 0;
 
@@ -98,15 +86,11 @@ describe("Signal", () => {
     dispose();
     count.value = 10;
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        expect(effectRuns).toBe(1); // Should not run after disposal
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+    expect(effectRuns).toBe(1); // Should not run after disposal
   });
 
-  test("should handle multiple effects on same signal", () => {
+  test("should handle multiple effects on same signal", async () => {
     const count = signal(0);
     let effect1Runs = 0;
     let effect2Runs = 0;
@@ -126,13 +110,9 @@ describe("Signal", () => {
 
     count.value = 5;
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        expect(effect1Runs).toBe(2);
-        expect(effect2Runs).toBe(2);
-        resolve(undefined);
-      }, 10);
-    });
+    await flushEffects();
+    expect(effect1Runs).toBe(2);
+    expect(effect2Runs).toBe(2);
   });
 
   test("should work with different data types", () => {
@@ -181,7 +161,7 @@ describe("Signal", () => {
       expect(undefinedSignal.value).toBeUndefined();
     });
 
-    test("should handle NaN values", () => {
+    test("should handle NaN values", async () => {
       const nanSignal = signal(NaN);
       expect(Number.isNaN(nanSignal.value)).toBe(true);
       
@@ -195,18 +175,13 @@ describe("Signal", () => {
       expect(effectRuns).toBe(1);
       nanSignal.value = NaN;
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          expect(effectRuns).toBe(1); // Should NOT trigger because Object.is(NaN, NaN) is true
-          
-          // But changing to a different value should trigger
-          nanSignal.value = 5;
-          setTimeout(() => {
-            expect(effectRuns).toBe(2);
-            resolve(undefined);
-          }, 10);
-        }, 10);
-      });
+      await flushEffects();
+      expect(effectRuns).toBe(1); // Should NOT trigger because Object.is(NaN, NaN) is true
+
+      // But changing to a different value should trigger
+      nanSignal.value = 5;
+      await flushEffects();
+      expect(effectRuns).toBe(2);
     });
 
     test("should handle Infinity values", () => {
@@ -309,7 +284,7 @@ describe("Signal", () => {
       expect(count.value).toBe(3); // Last write wins
     });
 
-    test("should handle rapid sequential updates", () => {
+    test("should handle rapid sequential updates", async () => {
       const count = signal(0);
       let effectRuns = 0;
       let lastValue = 0;
@@ -326,15 +301,9 @@ describe("Signal", () => {
         count.value = i;
       }
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          expect(lastValue).toBe(100);
-          // Effect should batch updates
-          expect(effectRuns).toBeGreaterThan(1);
-          expect(effectRuns).toBeLessThanOrEqual(101);
-          resolve(undefined);
-        }, 20);
-      });
+      await flushEffects();
+      expect(lastValue).toBe(100);
+      expect(effectRuns).toBe(2);
     });
 
     test("should handle errors in custom equality function", () => {
@@ -350,7 +319,7 @@ describe("Signal", () => {
       }).toThrow("Equality check failed");
     });
 
-    test("should handle custom equality returning non-boolean", () => {
+    test("should handle custom equality returning non-boolean", async () => {
       const weirdEquals = () => "yes" as unknown as boolean;
       const sig = signal(1, { equals: weirdEquals });
       
@@ -365,12 +334,8 @@ describe("Signal", () => {
       // "yes" is truthy, so should be treated as equal
       sig.value = 2;
       
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          expect(effectRuns).toBe(1); // Should not trigger
-          resolve(undefined);
-        }, 10);
-      });
+      await flushEffects();
+      expect(effectRuns).toBe(1); // Should not trigger
     });
 
     test("should handle zero vs negative zero", () => {
