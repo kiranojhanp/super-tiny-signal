@@ -71,7 +71,6 @@ export class Computed<T> extends Signal<T> {
       source.removeEffect(this.markDirty);
     }
     this.sources.clear();
-    this.markDirty.dependencies.clear();
 
     // Push markDirty onto the active effects stack
     activeEffects.push(this.markDirty);
@@ -84,6 +83,9 @@ export class Computed<T> extends Signal<T> {
       this.dirty = false;
 
       // Track the new sources (signals that were accessed during computation)
+      // The markDirty effect is automatically added to each signal's effects set
+      // when we read signal.value (because markDirty is on activeEffects stack)
+      // Now we need to track which signals we depend on for cleanup later
       if (this.markDirty.dependencies) {
         for (const dep of this.markDirty.dependencies) {
           this.sources.add(dep);
