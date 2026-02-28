@@ -1,7 +1,5 @@
 ![prapti](assets/banner.png)
 
-# SuperTinySignal
-
 Tiny, framework-agnostic reactivity for TypeScript apps.
 
 If you want signal-style state without pulling in a full UI framework, this is for you.
