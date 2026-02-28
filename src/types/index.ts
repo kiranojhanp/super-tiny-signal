@@ -1,5 +1,3 @@
-import { Signal } from "../core/signal.js";
-
 // ──────────────────────────────────────────────────────────────
 // Type Definitions & Interfaces
 // ──────────────────────────────────────────────────────────────
@@ -12,14 +10,18 @@ export type EqualsFn<T> = (a: T, b: T) => boolean;
 export interface ReactiveEffect {
   (): void;
   disposed?: boolean;
-  dependencies?: Set<Signal<unknown>>;
+  dependencies?: Set<DependencyNode>;
+}
+
+export interface DependencyNode {
+  removeEffect(effect: ReactiveEffect): void;
 }
 
 /**
  * An internal type for our effect runner that includes dependency tracking.
  */
 export type EffectRunner = ReactiveEffect & {
-  dependencies: Set<Signal<unknown>>;
+  dependencies: Set<DependencyNode>;
 };
 
 /**
@@ -55,7 +57,6 @@ export interface CreateStoreConfig<T> {
 export interface ComputedOptions<T> {
   eager?: boolean;
   equals?: EqualsFn<T>;
-  dependencies: Set<Signal<unknown>>;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { ReactiveEffect, EqualsFn } from "../types";
+import type { EqualsFn, ReactiveEffect } from "../types/index.js";
 import { defaultEquals } from "../utils/equality.js";
 import { activeEffects, scheduleEffect } from "./effect.js";
 
@@ -93,13 +93,85 @@ export class Signal<T> {
   }
 }
 
+export type SignalValue<T> = T | ((prev: T) => T);
+
+export interface WritableSignal<T> {
+  (): T;
+  (next: SignalValue<T>): T;
+  value: T;
+  peek(): T;
+  set(next: SignalValue<T>): T;
+  addEffect(effect: ReactiveEffect): void;
+  removeEffect(effect: ReactiveEffect): void;
+  subscribe(listener: ReactiveEffect): () => void;
+  toString(): string;
+}
+
+function isUpdater<T>(value: SignalValue<T>): value is (prev: T) => T {
+  return typeof value === "function";
+}
+
+function createWritableSignal<T>(core: Signal<T>): WritableSignal<T> {
+  const callable = function signalAccessor(next?: SignalValue<T>): T {
+    if (arguments.length === 0) {
+      return core.value;
+    }
+
+    const resolved = isUpdater(next as SignalValue<T>)
+      ? (next as (prev: T) => T)(core.value)
+      : (next as T);
+
+    core.value = resolved;
+    return core.value;
+  } as WritableSignal<T>;
+
+  Object.defineProperty(callable, "value", {
+    get() {
+      return core.value;
+    },
+    set(newValue: T) {
+      core.value = newValue;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  callable.peek = () => core.peek();
+  callable.set = (next) => callable(next);
+  callable.addEffect = (effect) => core.addEffect(effect);
+  callable.removeEffect = (effect) => core.removeEffect(effect);
+  callable.subscribe = (listener) => {
+    core.addEffect(listener);
+    return () => core.removeEffect(listener);
+  };
+  callable.toString = () => core.toString();
+
+  return callable;
+}
+
+export function isSignal(value: unknown): value is WritableSignal<unknown> {
+  if (
+    (typeof value !== "function" && typeof value !== "object") ||
+    value === null
+  ) {
+    return false;
+  }
+
+  const candidate = value as Partial<WritableSignal<unknown>>;
+  return (
+    typeof candidate.peek === "function" &&
+    typeof candidate.addEffect === "function" &&
+    typeof candidate.removeEffect === "function"
+  );
+}
+
 /**
  * Helper to create a new signal.
  */
 export function signal<T>(
   initialValue: T,
   options?: { equals?: EqualsFn<T> }
-): Signal<T> {
+): WritableSignal<T> {
   const equals = options?.equals ?? defaultEquals;
-  return new Signal(initialValue, equals);
+  return createWritableSignal(new Signal(initialValue, equals));
 }
