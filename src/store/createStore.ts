@@ -1,25 +1,8 @@
 import { effect, scheduleEffect } from "../core/effect.js";
-import { Signal } from "../core/signal.js";
+import { Signal, isSignal } from "../core/signal.js";
 import { deepEqual } from "../utils/equality.js";
 
 import type { CreateStoreConfig, SetState, Store } from "../types/index.js";
-
-/**
- * Type guard to check if a value is a Signal.
- */
-function isSignal(value: unknown): value is Signal<unknown> {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as {
-    value?: unknown;
-    addEffect?: unknown;
-    removeEffect?: unknown;
-  };
-  return (
-    "value" in candidate &&
-    typeof candidate.addEffect === "function" &&
-    typeof candidate.removeEffect === "function"
-  );
-}
 export function createStore<T extends Record<string, unknown>>(
   initializer: (set: SetState<T>, get: () => T) => T,
   config: CreateStoreConfig<T> = {}
@@ -134,7 +117,11 @@ export function createStore<T extends Record<string, unknown>>(
   store = Object.fromEntries(
     Object.entries(initialState).map(([key, value]) => [
       key,
-      typeof value === "function" ? value : new Signal(value),
+      typeof value === "function"
+        ? value
+        : isSignal(value)
+          ? value
+          : new Signal(value),
     ])
   ) as Store<T>;
 
