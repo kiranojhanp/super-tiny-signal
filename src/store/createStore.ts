@@ -1,15 +1,8 @@
 import { effect, scheduleEffect } from "../core/effect.js";
-import { signal, Signal } from "../core/signal.js";
+import { signal, isSignal } from "../core/signal.js";
 import { deepEqual } from "../utils/equality.js";
 
 import type { CreateStoreConfig, SetState, Store } from "../types/index.js";
-
-/**
- * Type guard to check if a value is a Signal.
- */
-function isSignal(value: unknown): value is Signal<unknown> {
-  return value instanceof Signal;
-}
 
 export function createStore<T extends Record<string, unknown>>(
   initializer: (set: SetState<T>, get: () => T) => T,

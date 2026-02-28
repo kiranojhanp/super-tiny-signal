@@ -2,6 +2,9 @@
 export { Signal, signal } from "./core/signal";
 export { Computed, computed } from "./core/computed";
 export { effect, batch } from "./core/effect";
+export { bindText } from "./dom/bindText";
+export { bindAttr } from "./dom/bindAttr";
+export { on } from "./dom/on";
 
 // Exporting store-related functionality
 export { createStore } from "./store/createStore";
@@ -21,3 +24,5 @@ export { deepEqual } from "./utils/equality";
 
 // Export types
 export type { Store } from "./types";
+export type { WritableSignal, SignalValue } from "./core/signal";
+export type { ComputedSignal } from "./core/computed";

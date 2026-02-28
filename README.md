@@ -19,18 +19,26 @@ npm install super-tiny-signal
 ## Quick start
 
 ```ts
-import { signal, computed, effect } from "super-tiny-signal";
+import { signal, computed, effect, bindText, on } from "super-tiny-signal";
 
 const count = signal(1);
-const doubled = computed(() => count.value * 2);
+const doubled = computed(() => count() * 2);
+
+const valueEl = document.querySelector("#value")!;
+const buttonEl = document.querySelector("#increment")!;
+
+bindText(valueEl, () => `count=${count()} doubled=${doubled()}`);
+on(buttonEl, "click", () => count((prev) => prev + 1));
 
 const stop = effect(() => {
-  console.log(`count=${count.value} doubled=${doubled.value}`);
+  document.title = `count=${count()}`;
 });
 
-count.value = 2;
+count(2);
 stop();
 ```
+
+`count.value` still works in this beta release for migration compatibility.
 
 ---
 
@@ -49,20 +57,33 @@ stop();
 ### Reactivity primitives
 
 ```ts
-import { signal, computed, effect, batch } from "super-tiny-signal";
+import {
+  signal,
+  computed,
+  effect,
+  batch,
+  bindText,
+  bindAttr,
+  on,
+} from "super-tiny-signal";
 
 const a = signal(1);
 const b = signal(2);
-const sum = computed(() => a.value + b.value);
+const sum = computed(() => a() + b());
 
 const dispose = effect(() => {
-  console.log("sum", sum.value);
+  console.log("sum", sum());
 });
 
 batch(() => {
-  a.value = 10;
-  b.value = 20;
+  a(10);
+  b(20);
 });
+
+const output = document.createElement("p");
+bindText(output, () => `sum=${sum()}`);
+bindAttr(output, "data-ready", () => (sum() > 0 ? "yes" : null));
+on(document.body, "click", () => console.log("clicked body"));
 
 dispose();
 ```
@@ -73,10 +94,10 @@ dispose();
 import { useState, useMemo, useEffect } from "super-tiny-signal";
 
 const [count, setCount] = useState(0);
-const doubled = useMemo(() => count.value * 2);
+const doubled = useMemo(() => count() * 2);
 
 const stop = useEffect(() => {
-  console.log("doubled", doubled.value);
+  console.log("doubled", doubled());
 });
 
 setCount((prev) => prev + 1);
@@ -104,6 +125,24 @@ store.setState({ theme: "dark" });
 console.log(store.theme.value);
 ```
 
+## Before vs after
+
+```ts
+// Before
+const count = signal(0);
+count.value = count.value + 1;
+effect(() => console.log(count.value));
+
+// After
+const count = signal(0);
+count((prev) => prev + 1);
+effect(() => console.log(count()));
+```
+
+- Less boilerplate: no repetitive `.value` in most reactive code.
+- Better vanilla DOM DX: direct `bindText`/`bindAttr`/`on` helpers, no VDOM.
+- Safer lifecycle: scope-aware cleanup when bound DOM nodes are removed.
+
 ---
 
 ## Documentation
@@ -111,6 +150,7 @@ console.log(store.theme.value);
 - [Architecture overview](docs/README.md)
 - [Reactivity internals](docs/reactivity.md)
 - [Store and persistence](docs/store-and-persistence.md)
+- [Callable-signal migration guide](docs/migration/callable-signals.md)
 
 ---
 
@@ -129,6 +169,9 @@ import {
   useState,
   useMemo,
   useEffect,
+  bindText,
+  bindAttr,
+  on,
   deepEqual,
 } from "super-tiny-signal";
 ```
