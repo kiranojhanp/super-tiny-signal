@@ -4,15 +4,15 @@ Tiny, predictable reactivity for production apps.
 
 `super-tiny-signal` gives you fine-grained reactive primitives (`signal`, `computed`, `effect`) plus ergonomic helpers (`createStore`, `useState`, `useMemo`, `useEffect`) and optional persistence middleware.
 
-It is framework-agnostic, TypeScript-first, and built for deterministic behavior.
+Framework-agnostic, TypeScript-first, built for deterministic behavior.
 
-## Install
+## install
 
 ```bash
 npm install super-tiny-signal
 ```
 
-## 60-second quick start
+## quick start
 
 ```ts
 import { signal, computed, effect } from "super-tiny-signal";
@@ -29,7 +29,7 @@ count.value = 2; // logs updated values
 dispose(); // stop reacting
 ```
 
-## Core primitives
+## core primitives
 
 ### `signal(initialValue, options?)`
 
@@ -51,7 +51,7 @@ const custom = signal(
 
 ### `computed(fn, options?)`
 
-Create derived reactive state. It is lazy by default, with optional eager mode.
+Create derived reactive state. Lazy by default, with optional eager mode.
 
 ```ts
 import { signal, computed } from "super-tiny-signal";
@@ -100,9 +100,9 @@ batch(() => {
 });
 ```
 
-## Hook-like helpers
+## hook-like helpers
 
-These are plain-function utilities, not tied to React.
+Plain-function utilities, not tied to React.
 
 ### `useState(initialValue)`
 
@@ -147,7 +147,7 @@ const dispose = useEffect(() => {
 dispose();
 ```
 
-## Store API
+## store API
 
 `createStore` builds a signal-backed store with immutable methods and subscription support.
 
@@ -172,13 +172,13 @@ store.setState({ label: "main" });
 unsubscribe();
 ```
 
-### Store notes
+### store notes
 
 - Non-function state fields are wrapped as signals (`store.field.value`).
 - Function fields become immutable store methods.
 - Reserved state keys are blocked: `getState`, `setState`, `subscribe`.
 
-## Persistence
+## persistence
 
 Use `persist` middleware with `createStore`.
 
@@ -282,24 +282,32 @@ flowchart TD
 - `useState` treats function arguments in setter form as updater functions.
 - `persist` stores `{ state, version }` metadata under the configured key.
 - Persistence adapters are async by contract, even when underlying storage is sync.
-- For unsupported JSON values (for example circular references), handle errors via `onError`.
+- For unsupported JSON values (circular references, etc.), handle errors via `onError`.
 
 </details>
 
-## Production checklist
+## docs
+
+Need more depth? Start here:
+
+- `docs/README.md` for the docs map and architecture overview
+- `docs/reactivity.md` for signal/computed/effect internals and scheduling
+- `docs/store-and-persistence.md` for store updates, subscriptions, and persistence flow
+
+## production checklist
 
 - Use strict TypeScript mode in your app.
 - Add app-level tests around your critical reactive flows.
 - Prefer deterministic tests (`flush`-driven) over timer windows.
 - Use custom `equals` only when you fully understand its invalidation impact.
 
-## Development
+## development
 
 ```bash
 npm run build
 bun test
 ```
 
-## License
+## license
 
 MIT
