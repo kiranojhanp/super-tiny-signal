@@ -1,18 +1,21 @@
-# super-tiny-signal
+# SuperTinySignal
 
-Tiny, predictable reactivity for production apps.
+A no-nonsense, type-safe, tiny reactive library for production apps.
 
-`super-tiny-signal` gives you fine-grained reactive primitives (`signal`, `computed`, `effect`) plus ergonomic helpers (`createStore`, `useState`, `useMemo`, `useEffect`) and optional persistence middleware.
+[![npm version](https://img.shields.io/npm/v/super-tiny-signal.svg)](https://www.npmjs.com/package/super-tiny-signal)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Framework-agnostic, TypeScript-first, built for deterministic behavior.
+---
 
-## install
+## Installation
 
 ```bash
 npm install super-tiny-signal
 ```
 
-## quick start
+---
+
+## Quick start
 
 ```ts
 import { signal, computed, effect } from "super-tiny-signal";
@@ -29,7 +32,7 @@ count.value = 2; // logs updated values
 dispose(); // stop reacting
 ```
 
-## core primitives
+## Core primitives
 
 ### `signal(initialValue, options?)`
 
@@ -100,7 +103,7 @@ batch(() => {
 });
 ```
 
-## hook-like helpers
+## Hook-like helpers
 
 Plain-function utilities, not tied to React.
 
@@ -147,7 +150,7 @@ const dispose = useEffect(() => {
 dispose();
 ```
 
-## store API
+## Store API
 
 `createStore` builds a signal-backed store with immutable methods and subscription support.
 
@@ -172,13 +175,13 @@ store.setState({ label: "main" });
 unsubscribe();
 ```
 
-### store notes
+### Store notes
 
 - Non-function state fields are wrapped as signals (`store.field.value`).
 - Function fields become immutable store methods.
 - Reserved state keys are blocked: `getState`, `setState`, `subscribe`.
 
-## persistence
+## Persistence
 
 Use `persist` middleware with `createStore`.
 
@@ -223,6 +226,14 @@ const indexed = createIndexedDBStorage({
 });
 ```
 
+## Documentation
+
+- [Architecture overview](docs/README.md)
+- [Reactivity internals](docs/reactivity.md)
+- [Store and persistence](docs/store-and-persistence.md)
+
+---
+
 ## API surface
 
 ```ts
@@ -242,8 +253,10 @@ import {
 } from "super-tiny-signal";
 ```
 
+## Advanced
+
 <details>
-<summary><strong>Advanced: core reactive flow (Mermaid diagram)</strong></summary>
+<summary><strong>Core reactive flow (Mermaid diagram)</strong></summary>
 
 ```mermaid
 flowchart TD
@@ -266,7 +279,7 @@ flowchart TD
 </details>
 
 <details>
-<summary><strong>Advanced: consistency and safety guarantees</strong></summary>
+<summary><strong>Consistency and safety guarantees</strong></summary>
 
 - Computed invalidation is synchronous, so immediate reads after writes see fresh values.
 - Effects are scheduled and flushed with loop protection to avoid runaway recursion.
@@ -277,7 +290,7 @@ flowchart TD
 </details>
 
 <details>
-<summary><strong>Advanced: behavior notes and pitfalls</strong></summary>
+<summary><strong>Behavior notes and pitfalls</strong></summary>
 
 - `useState` treats function arguments in setter form as updater functions.
 - `persist` stores `{ state, version }` metadata under the configured key.
@@ -286,28 +299,24 @@ flowchart TD
 
 </details>
 
-## docs
-
-Need more depth? Start here:
-
-- `docs/README.md` for the docs map and architecture overview
-- `docs/reactivity.md` for signal/computed/effect internals and scheduling
-- `docs/store-and-persistence.md` for store updates, subscriptions, and persistence flow
-
-## production checklist
+## Production checklist
 
 - Use strict TypeScript mode in your app.
 - Add app-level tests around your critical reactive flows.
 - Prefer deterministic tests (`flush`-driven) over timer windows.
 - Use custom `equals` only when you fully understand its invalidation impact.
 
-## development
+---
+
+## Development
 
 ```bash
 npm run build
 bun test
 ```
 
-## license
+---
+
+## License
 
 MIT
