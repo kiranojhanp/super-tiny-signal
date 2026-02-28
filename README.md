@@ -19,26 +19,18 @@ npm install super-tiny-signal
 ## Quick start
 
 ```ts
-import { signal, computed, effect, bindText, on } from "super-tiny-signal";
+import { signal, derived, effect } from "super-tiny-signal";
 
-const count = signal(1);
-const doubled = computed(() => count() * 2);
-
-const valueEl = document.querySelector("#value")!;
-const buttonEl = document.querySelector("#increment")!;
-
-bindText(valueEl, () => `count=${count()} doubled=${doubled()}`);
-on(buttonEl, "click", () => count((prev) => prev + 1));
+const [count, setCount] = signal(1);
+const doubled = derived(() => count() * 2);
 
 const stop = effect(() => {
-  document.title = `count=${count()}`;
+  console.log(`count=${count()} doubled=${doubled()}`);
 });
 
-count(2);
+setCount(2);
 stop();
 ```
-
-`count.value` still works in this beta release for migration compatibility.
 
 ---
 
@@ -57,27 +49,19 @@ stop();
 ### Reactivity primitives
 
 ```ts
-import {
-  signal,
-  computed,
-  effect,
-  batch,
-  bindText,
-  bindAttr,
-  on,
-} from "super-tiny-signal";
+import { signal, derived, effect, batch, bindText, bindAttr, on } from "super-tiny-signal";
 
-const a = signal(1);
-const b = signal(2);
-const sum = computed(() => a() + b());
+const [a, setA] = signal(1);
+const [b, setB] = signal(2);
+const sum = derived(() => a() + b());
 
 const dispose = effect(() => {
   console.log("sum", sum());
 });
 
 batch(() => {
-  a(10);
-  b(20);
+  setA(10);
+  setB(20);
 });
 
 const output = document.createElement("p");
@@ -122,7 +106,7 @@ const store = createStore(
 );
 
 store.setState({ theme: "dark" });
-console.log(store.theme.value);
+console.log(store.getState().theme);
 ```
 
 ## Before vs after
@@ -134,8 +118,8 @@ count.value = count.value + 1;
 effect(() => console.log(count.value));
 
 // After
-const count = signal(0);
-count((prev) => prev + 1);
+const [count, setCount] = signal(0);
+setCount((prev) => prev + 1);
 effect(() => console.log(count()));
 ```
 
@@ -159,6 +143,7 @@ effect(() => console.log(count()));
 ```ts
 import {
   signal,
+  derived,
   computed,
   effect,
   batch,

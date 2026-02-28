@@ -80,8 +80,8 @@ function withMockedMutationObserver(run: (trigger: (removed: Node[]) => void) =>
 }
 
 describe("dom helpers", () => {
-  test("bindText updates node text from callable signal", async () => {
-    const count = signal(0);
+  test("bindText updates node text from signal getter", async () => {
+    const [count, setCount] = signal(0);
     const node = {
       textContent: "",
       childNodes: createNodeList(),
@@ -90,18 +90,18 @@ describe("dom helpers", () => {
     const dispose = bindText(node, () => `Count ${count()}`);
     expect((node as { textContent: string }).textContent).toBe("Count 0");
 
-    count(3);
+    setCount(3);
     await flushEffects();
     expect((node as { textContent: string }).textContent).toBe("Count 3");
 
     dispose();
-    count(5);
+    setCount(5);
     await flushEffects();
     expect((node as { textContent: string }).textContent).toBe("Count 3");
   });
 
   test("bindAttr applies and removes attributes", async () => {
-    const active = signal(false);
+    const [active, setActive] = signal(false);
     const attrs = new Map<string, string>();
     const element = {
       childNodes: createNodeList(),
@@ -116,11 +116,11 @@ describe("dom helpers", () => {
     bindAttr(element, "data-active", () => (active() ? "yes" : null));
     expect(attrs.has("data-active")).toBe(false);
 
-    active(true);
+    setActive(true);
     await flushEffects();
     expect(attrs.get("data-active")).toBe("yes");
 
-    active(false);
+    setActive(false);
     await flushEffects();
     expect(attrs.has("data-active")).toBe(false);
   });

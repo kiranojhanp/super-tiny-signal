@@ -12,11 +12,11 @@ sequenceDiagram
   participant Sig as signal
   participant Q as scheduler queue
 
-  App->>Eff: effect(() => read signal())
+  App->>Eff: effect(() => read getter())
   Eff->>Sig: getter tracks active effect
   Sig-->>Eff: dependency registered
 
-  App->>Sig: signal(next)
+  App->>Sig: setSignal(newValue)
   Sig->>Sig: compare old/new (equals)
   Sig->>Q: schedule dependent effects
   Q-->>Eff: flush in microtask (or batch end)
@@ -25,13 +25,12 @@ sequenceDiagram
 
 ## signals
 
-`signal<T>()` returns a callable value container with dependency awareness.
+`signal<T>()` returns a getter/setter tuple with dependency awareness.
 
-- Read (`count()`) from inside an active effect/computed and it records that dependency.
-- Write (`count(next)` or `count(prev => next)`) and it schedules all dependent effects.
+- Read (`getter()`) from inside an active effect/computed and it records that dependency.
+- Write (`setter(next)` or `setter(prev => next)`) and it schedules all dependent effects.
 - Comparisons use `Object.is` by default, or a custom `equals` function.
-- `.peek()` reads without tracking.
-- `.value` remains available in beta as a migration-friendly alias.
+- Internally, `Signal<T>.peek()` still reads without tracking.
 
 In short: reads create links, writes trigger reruns.
 
@@ -49,11 +48,11 @@ That batching behavior is what keeps rapid writes from spamming effect execution
 
 ## computed values
 
-`computed<T>()` returns a callable, read-only derived signal.
+`computed<T>()` returns a read-only computed wrapper (`Computed<T>`), and `derived<T>()` returns a callable getter (`() => T`).
 
 - It tracks source dependencies by running with an internal marker effect (`markDirty`).
 - When a source changes, computed becomes dirty.
-- Reading `derived()` recomputes if dirty, then returns cached value.
+- Reading `computed.value` recomputes if dirty, then returns cached value.
 - Optional `eager: true` recomputes immediately when dependencies change.
 - Writes are blocked (`Cannot set value of a computed signal`).
 

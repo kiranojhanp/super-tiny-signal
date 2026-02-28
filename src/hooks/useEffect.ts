@@ -20,27 +20,5 @@ import { effect } from "../core/effect.js";
  * dispose();
  */
 export function useEffect(fn: () => void | (() => void)): () => void {
-  let cleanup: void | (() => void);
-  
-  const wrappedEffect = () => {
-    // Run cleanup from previous execution
-    if (cleanup) cleanup();
-    
-    // Execute the effect and capture any cleanup function
-    const result = fn();
-    if (typeof result === "function") {
-      cleanup = result;
-    }
-  };
-  
-  // Get the disposal function from the effect system
-  const dispose = effect(wrappedEffect);
-  
-  // Return a composite disposal function that runs both cleanups
-  return () => {
-    // Run user's cleanup if present
-    if (cleanup) cleanup();
-    // Dispose the effect from the reactive system
-    dispose();
-  };
+  return effect(fn);
 }

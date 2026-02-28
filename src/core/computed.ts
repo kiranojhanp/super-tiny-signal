@@ -190,3 +190,11 @@ export function computed<T>(
 ): ComputedSignal<T> {
   return createComputedSignal(new Computed(computeFn, options));
 }
+
+export function derived<T>(
+  computeFn: () => T,
+  options?: { eager?: boolean; equals?: EqualsFn<T> }
+): () => T {
+  const memo = computed(computeFn, options);
+  return () => memo.value;
+}

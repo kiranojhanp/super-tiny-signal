@@ -1,4 +1,10 @@
-import type { EqualsFn, ReactiveEffect } from "../types/index.js";
+import type {
+  EqualsFn,
+  Getter,
+  ReactiveEffect,
+  Setter,
+  SignalTuple,
+} from "../types/index.js";
 import { defaultEquals } from "../utils/equality.js";
 import { activeEffects, scheduleEffect } from "./effect.js";
 
@@ -93,73 +99,17 @@ export class Signal<T> {
   }
 }
 
-export type SignalValue<T> = T | ((prev: T) => T);
+export function isSignal(value: unknown): value is Signal<unknown> {
+  if (typeof value !== "object" || value === null) return false;
 
-export interface WritableSignal<T> {
-  (): T;
-  (next: SignalValue<T>): T;
-  value: T;
-  peek(): T;
-  set(next: SignalValue<T>): T;
-  addEffect(effect: ReactiveEffect): void;
-  removeEffect(effect: ReactiveEffect): void;
-  subscribe(listener: ReactiveEffect): () => void;
-  toString(): string;
-}
-
-function isUpdater<T>(value: SignalValue<T>): value is (prev: T) => T {
-  return typeof value === "function";
-}
-
-function createWritableSignal<T>(core: Signal<T>): WritableSignal<T> {
-  const callable = function signalAccessor(next?: SignalValue<T>): T {
-    if (arguments.length === 0) {
-      return core.value;
-    }
-
-    const resolved = isUpdater(next as SignalValue<T>)
-      ? (next as (prev: T) => T)(core.value)
-      : (next as T);
-
-    core.value = resolved;
-    return core.value;
-  } as WritableSignal<T>;
-
-  Object.defineProperty(callable, "value", {
-    get() {
-      return core.value;
-    },
-    set(newValue: T) {
-      core.value = newValue;
-    },
-    enumerable: true,
-    configurable: true,
-  });
-
-  callable.peek = () => core.peek();
-  callable.set = (next) => callable(next);
-  callable.addEffect = (effect) => core.addEffect(effect);
-  callable.removeEffect = (effect) => core.removeEffect(effect);
-  callable.subscribe = (listener) => {
-    core.addEffect(listener);
-    return () => core.removeEffect(listener);
+  const candidate = value as {
+    value?: unknown;
+    addEffect?: unknown;
+    removeEffect?: unknown;
   };
-  callable.toString = () => core.toString();
 
-  return callable;
-}
-
-export function isSignal(value: unknown): value is WritableSignal<unknown> {
-  if (
-    (typeof value !== "function" && typeof value !== "object") ||
-    value === null
-  ) {
-    return false;
-  }
-
-  const candidate = value as Partial<WritableSignal<unknown>>;
   return (
-    typeof candidate.peek === "function" &&
+    "value" in candidate &&
     typeof candidate.addEffect === "function" &&
     typeof candidate.removeEffect === "function"
   );
@@ -171,7 +121,16 @@ export function isSignal(value: unknown): value is WritableSignal<unknown> {
 export function signal<T>(
   initialValue: T,
   options?: { equals?: EqualsFn<T> }
-): WritableSignal<T> {
+): SignalTuple<T> {
   const equals = options?.equals ?? defaultEquals;
-  return createWritableSignal(new Signal(initialValue, equals));
+  const state = new Signal(initialValue, equals);
+
+  const get: Getter<T> = () => state.value;
+  const set: Setter<T> = (next) => {
+    state.value = typeof next === "function"
+      ? (next as (prev: T) => T)(state.value)
+      : next;
+  };
+
+  return [get, set];
 }

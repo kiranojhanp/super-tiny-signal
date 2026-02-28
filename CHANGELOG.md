@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💥 Breaking API Revision
+
+#### Tuple Signal API + Derived Getter API
+**Changed**: `signal()` now returns `[getter, setter]` instead of a mutable `Signal<T>` instance as the primary public API.
+
+**Details**:
+- `const [count, setCount] = signal(0)`
+- Read with `count()`
+- Write with `setCount(next)` or `setCount(prev => next)`
+- New `derived(() => ...)` helper returns a callable getter for derived values
+
+**Why**: This removes call-site ambiguity and keeps read/write intent explicit without dual-purpose call signatures.
+
+**Files Changed**: `src/core/signal.ts`, `src/core/computed.ts`, `src/hooks/useState.ts`, `src/hooks/useMemo.ts`, `src/types/index.ts`, tests
+
 ### 🐛 Critical Bug Fixes
 
 #### Computed Signals Not Recomputing
@@ -20,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Propagating sync effects through computed chains to ensure all dirty flags are set immediately
 
 **Impact**: This enables computed signals to work correctly in all scenarios, including:
-- Simple computed values (e.g., `doubled = computed(() => count.value * 2)`)
+- Simple computed values (e.g., `doubled = computed(() => count() * 2)`)
 - Chained computed signals (e.g., `quadrupled = computed(() => doubled.value * 2)`)
 - Complex dependency graphs with multiple levels of derivation
 
@@ -50,13 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Files Changed**: `src/hooks/useEffect.ts`
 
 #### useMemo Returning Undefined
-**Fixed**: `useMemo` now returns a `Computed<T>` signal instead of trying to access `.value` immediately.
+**Fixed**: `useMemo` now returns a callable getter (`() => T`) via `derived`, preserving reactivity and matching tuple-style ergonomics.
 
-**Root Cause**: Previous implementation called `computed(fn).value`, which broke reactivity since it returned the raw value instead of the signal.
+**Root Cause**: Previous implementations alternated between returning raw values and computed wrappers, causing inconsistent behavior and API mismatch.
 
-**Solution**: Changed `useMemo` to return `computed(fn, options)` directly, allowing it to work properly in reactive contexts.
+**Solution**: Changed `useMemo` to return `derived(fn, options)` directly, so consumers use `memo()` consistently.
 
-**Breaking Change**: ⚠️ Code using `useMemo` must now access `.value` on the returned computed signal.
+**Breaking Change**: ⚠️ Code using `useMemo` must call the returned getter function (`memo()`) instead of reading `.value`.
 
 **Files Changed**: `src/hooks/useMemo.ts`
 
@@ -180,15 +195,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 2. **useMemo Return Type**
    ```typescript
    // Before
-   const doubled = useMemo(() => count.value * 2);
-   console.log(doubled); // Was the value directly
+   const doubled = useMemo(() => count() * 2);
+   console.log(doubled.value);
 
    // After
-   const doubled = useMemo(() => count.value * 2);
-   console.log(doubled.value); // Now returns a Computed<T> signal
+   const doubled = useMemo(() => count() * 2);
+   console.log(doubled()); // Returns current memoized value
    ```
 
-3. **Persist Middleware**
+3. **Signal Read/Write Syntax**
+   ```typescript
+   // Before
+   const count = signal(0);
+   count.value = 5;
+   console.log(count.value);
+
+   // After
+   const [count, setCount] = signal(0);
+   setCount(5);
+   console.log(count());
+   ```
+
+4. **Persist Middleware**
    - If relying on synchronous hydration, use the new `onHydrated` callback:
    ```typescript
    persist(store, {
@@ -201,7 +229,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    });
    ```
 
-4. **IndexedDB Version Support**
+5. **IndexedDB Version Support**
    ```typescript
    // Before
    const storage = createIndexedDBStorage('myDB', 'myStore');

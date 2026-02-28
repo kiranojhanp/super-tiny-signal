@@ -1,5 +1,4 @@
 import { signal } from "../core/signal.js";
-import type { SignalValue, WritableSignal } from "../core/signal.js";
 
 /**
  * useState hook: creates reactive state.
@@ -10,10 +9,6 @@ import type { SignalValue, WritableSignal } from "../core/signal.js";
  */
 export function useState<T>(
   initialValue: T
-): [WritableSignal<T>, (value: SignalValue<T>) => void] {
-  const s = signal(initialValue);
-  const setValue = (value: SignalValue<T>) => {
-    s(value);
-  };
-  return [s, setValue];
+): [() => T, (value: T | ((prev: T) => T)) => void] {
+  return signal(initialValue);
 }
