@@ -91,6 +91,8 @@ export function batch(fn: () => void): void {
  * and remove the effect from all signals it depends on.
  */
 export function effect(fn: () => void, scope?: Node): () => void {
+  let unregisterScopeCleanup = () => {};
+
   const runner: EffectRunner = function effectRunner() {
     // Cleanup previous dependencies.
     if (runner.dependencies) {
@@ -116,16 +118,19 @@ export function effect(fn: () => void, scope?: Node): () => void {
 
   // Return a function to dispose of the effect.
   const dispose = () => {
+    if (runner.disposed) return;
     runner.disposed = true;
+    unregisterScopeCleanup();
     if (runner.dependencies) {
       for (const dep of runner.dependencies) {
         dep.removeEffect(runner);
       }
+      runner.dependencies.clear();
     }
   };
 
   if (scope) {
-    registerNodeCleanup(scope, dispose);
+    unregisterScopeCleanup = registerNodeCleanup(scope, dispose);
   }
 
   return dispose;

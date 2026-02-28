@@ -20,6 +20,65 @@ function createNodeList(nodes: Node[] = []): FakeNodeList {
   };
 }
 
+function createMutationRecord(removedNodes: Node[]): MutationRecord {
+  return {
+    addedNodes: createNodeList() as unknown as NodeList,
+    attributeName: null,
+    attributeNamespace: null,
+    nextSibling: null,
+    oldValue: null,
+    previousSibling: null,
+    removedNodes: createNodeList(removedNodes) as unknown as NodeList,
+    target: {} as Node,
+    type: "childList",
+  } as MutationRecord;
+}
+
+function withMockedMutationObserver(run: (trigger: (removed: Node[]) => void) => void): void {
+  const originalObserver = globalThis.MutationObserver;
+  const originalDocument = globalThis.document;
+
+  let callback: MutationCallback = () => {};
+
+  class MockMutationObserver {
+    constructor(cb: MutationCallback) {
+      callback = cb;
+    }
+
+    observe(): void {}
+    disconnect(): void {}
+    takeRecords(): MutationRecord[] {
+      return [];
+    }
+  }
+
+  (globalThis as unknown as { MutationObserver: typeof MutationObserver }).MutationObserver =
+    MockMutationObserver as unknown as typeof MutationObserver;
+  (globalThis as unknown as { document: Document }).document = {
+    documentElement: {} as Element,
+  } as Document;
+
+  try {
+    run((removed) => {
+      callback([createMutationRecord(removed)], {} as MutationObserver);
+    });
+  } finally {
+    if (originalObserver) {
+      (globalThis as unknown as { MutationObserver: typeof MutationObserver }).MutationObserver =
+        originalObserver;
+    } else {
+      delete (globalThis as unknown as { MutationObserver?: typeof MutationObserver })
+        .MutationObserver;
+    }
+
+    if (originalDocument) {
+      (globalThis as unknown as { document: Document }).document = originalDocument;
+    } else {
+      delete (globalThis as unknown as { document?: Document }).document;
+    }
+  }
+}
+
 describe("dom helpers", () => {
   test("bindText updates node text from callable signal", async () => {
     const count = signal(0);
@@ -67,12 +126,12 @@ describe("dom helpers", () => {
   });
 
   test("on wires and unwires typed event listeners", () => {
-    let clickListener: EventListener | null = null;
+    let clickListener: ((event: Event) => void) | null = null;
     let clicks = 0;
 
     const element = {
       addEventListener(_type: string, listener: EventListener) {
-        clickListener = listener;
+        clickListener = listener as (event: Event) => void;
       },
       removeEventListener(_type: string, listener: EventListener) {
         if (clickListener === listener) clickListener = null;
@@ -85,10 +144,65 @@ describe("dom helpers", () => {
     });
 
     expect(clickListener).not.toBeNull();
-    clickListener?.({ type: "click" } as Event);
+    (clickListener as ((event: Event) => void) | null)?.({ type: "click" } as Event);
     expect(clicks).toBe(1);
 
     dispose();
     expect(clickListener).toBeNull();
+  });
+
+  test("node cleanup continues when one disposer throws", () => {
+    withMockedMutationObserver((triggerRemoved) => {
+      let removeAttempts = 0;
+
+      const element = {
+        addEventListener() {},
+        removeEventListener() {
+          removeAttempts++;
+          if (removeAttempts === 1) {
+            throw new Error("remove failed");
+          }
+        },
+        childNodes: createNodeList(),
+      } as unknown as HTMLElement;
+
+      on(element, "click", () => {});
+      on(element, "click", () => {});
+
+      const originalError = console.error;
+      let errorCalls = 0;
+      console.error = () => {
+        errorCalls++;
+      };
+
+      try {
+        expect(() => triggerRemoved([element as unknown as Node])).not.toThrow();
+      } finally {
+        console.error = originalError;
+      }
+
+      expect(removeAttempts).toBe(2);
+      expect(errorCalls).toBe(1);
+    });
+  });
+
+  test("on does not remove listener twice after manual dispose", () => {
+    withMockedMutationObserver((triggerRemoved) => {
+      let removeCalls = 0;
+
+      const element = {
+        addEventListener() {},
+        removeEventListener() {
+          removeCalls++;
+        },
+        childNodes: createNodeList(),
+      } as unknown as HTMLElement;
+
+      const dispose = on(element, "click", () => {});
+      dispose();
+
+      triggerRemoved([element as unknown as Node]);
+      expect(removeCalls).toBe(1);
+    });
   });
 });

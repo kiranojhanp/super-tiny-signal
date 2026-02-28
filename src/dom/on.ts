@@ -6,16 +6,23 @@ export function on<K extends keyof HTMLElementEventMap>(
   handler: (event: HTMLElementEventMap[K]) => void,
   options?: boolean | AddEventListenerOptions
 ): () => void {
+  let disposed = false;
+
   const listener: EventListener = (event) => {
     handler(event as HTMLElementEventMap[K]);
   };
 
   element.addEventListener(type, listener, options);
 
+  let unregister = () => {};
+
   const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    unregister();
     element.removeEventListener(type, listener, options);
   };
 
-  registerNodeCleanup(element, dispose);
+  unregister = registerNodeCleanup(element, dispose);
   return dispose;
 }
