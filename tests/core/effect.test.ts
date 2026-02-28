@@ -4,11 +4,11 @@ import { effect, batch, flushEffects } from "../../src/core/effect.js";
 
 describe("Effect", () => {
   test("should run effect immediately", () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runCount = 0;
 
     effect(() => {
-      count.value;
+      count();
       runCount++;
     });
 
@@ -16,72 +16,72 @@ describe("Effect", () => {
   });
 
   test("should re-run effect when dependency changes", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let effectValue = 0;
 
     effect(() => {
-      effectValue = count.value;
+      effectValue = count();
     });
 
     expect(effectValue).toBe(0);
 
-    count.value = 5;
+    setCount(5);
     await flushEffects(); // Wait for async effects to run
 
     expect(effectValue).toBe(5);
   });
 
   test("should return dispose function", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runCount = 0;
 
     const dispose = effect(() => {
-      count.value;
+      count();
       runCount++;
     });
 
     expect(runCount).toBe(1);
 
-    count.value = 1;
+    setCount(1);
     await flushEffects();
     expect(runCount).toBe(2);
 
     dispose();
 
-    count.value = 2;
+    setCount(2);
     await flushEffects();
     expect(runCount).toBe(2); // Should not run after disposal
   });
 
   test("should cleanup and re-subscribe on each run", async () => {
-    const condition = signal(true);
-    const a = signal(1);
-    const b = signal(10);
+    const [condition, setCondition] = signal(true);
+    const [a, setA] = signal(1);
+    const [b, setB] = signal(10);
     let result = 0;
 
     effect(() => {
-      result = condition.value ? a.value : b.value;
+      result = condition() ? a() : b();
     });
 
     expect(result).toBe(1);
 
     // Change a, should trigger effect
-    a.value = 2;
+    setA(2);
     await flushEffects();
     expect(result).toBe(2);
 
     // Change condition to false
-    condition.value = false;
+    setCondition(false);
     await flushEffects();
     expect(result).toBe(10);
 
     // Change a, should NOT trigger effect anymore
-    a.value = 3;
+    setA(3);
     await flushEffects();
     expect(result).toBe(10); // Still 10, not affected by a
 
     // Change b, should trigger effect
-    b.value = 20;
+    setB(20);
     await flushEffects();
     expect(result).toBe(20);
   });
@@ -89,13 +89,13 @@ describe("Effect", () => {
 
 describe("batch", () => {
   test("should batch multiple signal updates", async () => {
-    const a = signal(1);
-    const b = signal(2);
+    const [a, setA] = signal(1);
+    const [b, setB] = signal(2);
     let runCount = 0;
     let sum = 0;
 
     effect(() => {
-      sum = a.value + b.value;
+      sum = a() + b();
       runCount++;
     });
 
@@ -104,8 +104,8 @@ describe("batch", () => {
 
     // Without batch, this would trigger effect twice
     batch(() => {
-      a.value = 10;
-      b.value = 20;
+      setA(10);
+      setB(20);
     });
 
     await flushEffects();
@@ -115,44 +115,44 @@ describe("batch", () => {
   });
 
   test("should handle nested batches", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runCount = 0;
 
     effect(() => {
-      count.value;
+      count();
       runCount++;
     });
 
     expect(runCount).toBe(1);
 
     batch(() => {
-      count.value = 1;
+      setCount(1);
       batch(() => {
-        count.value = 2;
-        count.value = 3;
+        setCount(2);
+        setCount(3);
       });
-      count.value = 4;
+      setCount(4);
     });
 
     await flushEffects();
 
-    expect(count.value).toBe(4);
+    expect(count()).toBe(4);
     expect(runCount).toBe(2); // Should only run once more
   });
 });
 
 describe("flushEffects", () => {
   test("should flush all pending effects", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let effectRan = false;
 
     effect(() => {
-      count.value;
+      count();
       effectRan = true;
     });
 
     effectRan = false;
-    count.value = 5;
+    setCount(5);
 
     expect(effectRan).toBe(false); // Effect hasn't run yet
 
@@ -170,13 +170,13 @@ describe("flushEffects", () => {
 
 describe("Infinite loop protection", () => {
   test("should detect and prevent infinite loops", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let errorThrown = false;
 
     try {
       effect(() => {
         // This creates an infinite loop
-        count.value = count.value + 1;
+        setCount(count() + 1);
       });
 
       // Try to flush effects multiple times
@@ -197,8 +197,8 @@ describe("Infinite loop protection", () => {
 // Edge case tests
 describe("Edge Cases", () => {
   test("should handle errors in effect function", async () => {
-    const shouldError = signal(false);
-    const count = signal(0);
+    const [shouldError, setShouldError] = signal(false);
+    const [count, setCount] = signal(0);
     let successfulRuns = 0;
     const originalConsoleError = console.error;
     const consoleErrors: unknown[][] = [];
@@ -209,17 +209,17 @@ describe("Edge Cases", () => {
     try {
       // Errors are logged but don't propagate
       effect(() => {
-        if (shouldError.value) {
+        if (shouldError()) {
           throw new Error("Effect error");
         }
-        count.value;
+        count();
         successfulRuns++;
       });
 
       expect(successfulRuns).toBe(1);
 
       // Trigger error - should be logged but caught
-      shouldError.value = true;
+      setShouldError(true);
       await flushEffects();
 
       // Effect continues to run despite the error
@@ -233,17 +233,17 @@ describe("Edge Cases", () => {
   });
 
   test("should handle nested effects", async () => {
-    const outer = signal(1);
-    const inner = signal(10);
+    const [outer, setOuter] = signal(1);
+    const [inner, setInner] = signal(10);
     let outerRuns = 0;
     let innerRuns = 0;
     
     effect(() => {
-      outer.value;
+      outer();
       outerRuns++;
       
       effect(() => {
-        inner.value;
+        inner();
         innerRuns++;
       });
     });
@@ -251,7 +251,7 @@ describe("Edge Cases", () => {
     expect(outerRuns).toBe(1);
     expect(innerRuns).toBe(1);
     
-    outer.value = 2;
+    setOuter(2);
     await flushEffects();
     
     // Outer runs again and creates exactly one new nested effect
@@ -260,46 +260,46 @@ describe("Edge Cases", () => {
   });
 
   test("should handle effects that modify multiple signals", async () => {
-    const a = signal(1);
-    const b = signal(2);
-    const c = signal(3);
+    const [a, setA] = signal(1);
+    const [b, setB] = signal(2);
+    const [c, setC] = signal(3);
     let runs = 0;
     
     effect(() => {
       runs++;
-      const sum = a.value + b.value;
-      c.value = sum;
+      const sum = a() + b();
+      setC(sum);
     });
     
     expect(runs).toBe(1);
-    expect(c.value).toBe(3);
+    expect(c()).toBe(3);
     
-    a.value = 10;
+    setA(10);
     await flushEffects();
     
-    expect(c.value).toBe(12);
+    expect(c()).toBe(12);
     expect(runs).toBe(2);
   });
 
   test("should handle effect disposal", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runs = 0;
     
     const dispose = effect(() => {
-      count.value;
+      count();
       runs++;
     });
     
     expect(runs).toBe(1);
     
-    count.value = 1;
+    setCount(1);
     await flushEffects();
     expect(runs).toBe(2);
     
     // Dispose the effect
     dispose();
     
-    count.value = 2;
+    setCount(2);
     await flushEffects();
     
     expect(runs).toBe(2); // Should not run after disposal
@@ -310,11 +310,11 @@ describe("Edge Cases", () => {
   });
 
   test("should handle disposed effect gracefully", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runs = 0;
     
     const dispose = effect(() => {
-      count.value;
+      count();
       runs++;
     });
     
@@ -322,7 +322,7 @@ describe("Edge Cases", () => {
     
     dispose();
     
-    count.value = 5;
+    setCount(5);
     await flushEffects();
     
     expect(runs).toBe(1); // Should not run after disposal
@@ -348,35 +348,35 @@ describe("Edge Cases", () => {
   });
 
   test("should handle effects that conditionally read signals", async () => {
-    const shouldRead = signal(true);
-    const value = signal(10);
+    const [shouldRead, setShouldRead] = signal(true);
+    const [value, setValue] = signal(10);
     let runs = 0;
     let lastValue = 0;
     
     effect(() => {
       runs++;
-      if (shouldRead.value) {
-        lastValue = value.value;
+      if (shouldRead()) {
+        lastValue = value();
       }
     });
     
     expect(runs).toBe(1);
     expect(lastValue).toBe(10);
     
-    value.value = 20;
+    setValue(20);
     await flushEffects();
     
     expect(runs).toBe(2);
     expect(lastValue).toBe(20);
     
     // Stop reading value
-    shouldRead.value = false;
+    setShouldRead(false);
     await flushEffects();
     
     expect(runs).toBe(3);
     
     // Changing value should not trigger effect now
-    value.value = 30;
+    setValue(30);
     await flushEffects();
     
     expect(runs).toBe(3); // Should not run
@@ -384,42 +384,42 @@ describe("Edge Cases", () => {
   });
 
   test("should handle batch within effect", async () => {
-    const a = signal(1);
-    const b = signal(2);
-    const c = signal(0);
+    const [a, setA] = signal(1);
+    const [b, setB] = signal(2);
+    const [c, setC] = signal(0);
     let runs = 0;
     
     effect(() => {
       runs++;
       batch(() => {
-        c.value = a.value + b.value;
+        setC(a() + b());
       });
     });
     
     expect(runs).toBe(1);
-    expect(c.value).toBe(3);
+    expect(c()).toBe(3);
     
-    a.value = 10;
+    setA(10);
     await flushEffects();
     
-    expect(c.value).toBe(12);
+    expect(c()).toBe(12);
   });
 
   test("should handle rapid signal updates", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runs = 0;
     let lastValue = 0;
     
     effect(() => {
       runs++;
-      lastValue = count.value;
+      lastValue = count();
     });
     
     expect(runs).toBe(1);
     
     // Rapid updates
     for (let i = 1; i <= 100; i++) {
-      count.value = i;
+      setCount(i);
     }
     
     await flushEffects();
@@ -429,57 +429,57 @@ describe("Edge Cases", () => {
   });
 
   test("should handle effect disposing itself", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runs = 0;
     let dispose: (() => void) | undefined;
     
     dispose = effect(() => {
       runs++;
-      count.value;
+      count();
       
-      if (count.value >= 3) {
+      if (count() >= 3) {
         dispose?.();
       }
     });
     
     expect(runs).toBe(1);
     
-    count.value = 1;
+    setCount(1);
     await flushEffects();
     expect(runs).toBe(2);
     
-    count.value = 2;
+    setCount(2);
     await flushEffects();
     expect(runs).toBe(3);
     
-    count.value = 3;
+    setCount(3);
     await flushEffects();
     expect(runs).toBe(4);
     
     // Should not run anymore
-    count.value = 4;
+    setCount(4);
     await flushEffects();
     expect(runs).toBe(4);
   });
 
   test("should handle multiple disposes in sequence", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runs1 = 0;
     let runs2 = 0;
     let runs3 = 0;
     
     const dispose1 = effect(() => {
-      count.value;
+      count();
       runs1++;
     });
     
     const dispose2 = effect(() => {
-      count.value;
+      count();
       runs2++;
     });
     
     const dispose3 = effect(() => {
-      count.value;
+      count();
       runs3++;
     });
     
@@ -487,7 +487,7 @@ describe("Edge Cases", () => {
     expect(runs2).toBe(1);
     expect(runs3).toBe(1);
     
-    count.value = 1;
+    setCount(1);
     await flushEffects();
     
     expect(runs1).toBe(2);
@@ -496,7 +496,7 @@ describe("Edge Cases", () => {
     
     dispose2();
     
-    count.value = 2;
+    setCount(2);
     await flushEffects();
     
     expect(runs1).toBe(3);
@@ -506,7 +506,7 @@ describe("Edge Cases", () => {
     dispose1();
     dispose3();
     
-    count.value = 3;
+    setCount(3);
     await flushEffects();
     
     expect(runs1).toBe(3); // All disposed
@@ -515,20 +515,20 @@ describe("Edge Cases", () => {
   });
 
   test("should handle async operations in effects", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     const results: number[] = [];
     
     effect(() => {
-      const value = count.value;
+      const value = count();
       // Simulate async operation
       Promise.resolve().then(() => {
         results.push(value);
       });
     });
     
-    count.value = 1;
-    count.value = 2;
-    count.value = 3;
+    setCount(1);
+    setCount(2);
+    setCount(3);
     
     await flushEffects();
     
@@ -540,20 +540,20 @@ describe("Edge Cases", () => {
   });
 
   test("should handle accessing same signal multiple times in effect", async () => {
-    const count = signal(5);
+    const [count, setCount] = signal(5);
     let runs = 0;
     let sum = 0;
     
     effect(() => {
       runs++;
       // Access same signal multiple times
-      sum = count.value + count.value + count.value;
+      sum = count() + count() + count();
     });
     
     expect(runs).toBe(1);
     expect(sum).toBe(15);
     
-    count.value = 10;
+    setCount(10);
     await flushEffects();
     
     expect(runs).toBe(2);
@@ -561,26 +561,26 @@ describe("Edge Cases", () => {
   });
 
   test("should handle null and undefined values in effects", async () => {
-    const nullable = signal<number | null>(null);
-    const undefinable = signal<number | undefined>(undefined);
+    const [nullable, setNullable] = signal(null);
+    const [undefinable, setUndefinable] = signal(undefined);
     let nullRuns = 0;
     let undefinedRuns = 0;
     
     effect(() => {
-      nullable.value;
+      nullable();
       nullRuns++;
     });
     
     effect(() => {
-      undefinable.value;
+      undefinable();
       undefinedRuns++;
     });
     
     expect(nullRuns).toBe(1);
     expect(undefinedRuns).toBe(1);
     
-    nullable.value = 5;
-    undefinable.value = 10;
+    setNullable(5);
+    setUndefinable(10);
     
     await flushEffects();
     
@@ -589,22 +589,22 @@ describe("Edge Cases", () => {
   });
 
   test("should handle effects without cleanup functions", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let runs = 0;
     
     // Effect function doesn't return cleanup
     effect(() => {
-      count.value;
+      count();
       runs++;
     });
     
     expect(runs).toBe(1);
     
-    count.value = 1;
+    setCount(1);
     await flushEffects();
     expect(runs).toBe(2);
     
-    count.value = 2;
+    setCount(2);
     await flushEffects();
     expect(runs).toBe(3);
   });

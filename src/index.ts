@@ -1,6 +1,6 @@
 // Exporting core-related utilities and classes
 export { Signal, signal } from "./core/signal";
-export { Computed, computed } from "./core/computed";
+export { Computed, computed, derived } from "./core/computed";
 export { effect, batch } from "./core/effect";
 
 // Exporting store-related functionality

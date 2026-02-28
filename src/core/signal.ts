@@ -1,4 +1,4 @@
-import { ReactiveEffect, EqualsFn } from "../types";
+import { ReactiveEffect, EqualsFn, Getter, Setter, SignalTuple } from "../types";
 import { defaultEquals } from "../utils/equality.js";
 import { activeEffects, scheduleEffect } from "./effect.js";
 
@@ -99,7 +99,16 @@ export class Signal<T> {
 export function signal<T>(
   initialValue: T,
   options?: { equals?: EqualsFn<T> }
-): Signal<T> {
+): SignalTuple<T> {
   const equals = options?.equals ?? defaultEquals;
-  return new Signal(initialValue, equals);
+  const state = new Signal(initialValue, equals);
+
+  const get: Getter<T> = () => state.value;
+  const set: Setter<T> = (next) => {
+    state.value = typeof next === "function"
+      ? (next as (prev: T) => T)(state.value)
+      : next;
+  };
+
+  return [get, set];
 }

@@ -1,4 +1,4 @@
-import { computed, Computed } from "../core/computed.js";
+import { derived } from "../core/computed.js";
 import type { EqualsFn } from "../types/index.js";
 
 /**
@@ -14,7 +14,6 @@ import type { EqualsFn } from "../types/index.js";
 export function useMemo<T>(
   fn: () => T,
   options?: { eager?: boolean; equals?: EqualsFn<T> }
-): Computed<T> {
-  return computed(fn, options);
+): () => T {
+  return derived(fn, options);
 }
-

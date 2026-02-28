@@ -6,6 +6,10 @@ import { Signal } from "../core/signal.js";
 
 export type EqualsFn<T> = (a: T, b: T) => boolean;
 
+export type Getter<T> = () => T;
+export type Setter<T> = (next: T | ((prev: T) => T)) => void;
+export type SignalTuple<T> = [Getter<T>, Setter<T>];
+
 /**
  * A reactive effect that can be disposed.
  */
@@ -67,6 +71,8 @@ export type Subscriber<T> = (state: T) => void;
  * Disposal function returned from effects and subscriptions.
  */
 export type Dispose = () => void;
+
+export type Cleanup = void | (() => void);
 
 export interface StoreConfig<T> {
   onSubscriberError?: (error: unknown, subscriber: (state: T) => void) => void;

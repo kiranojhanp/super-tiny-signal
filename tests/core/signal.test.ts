@@ -4,23 +4,23 @@ import { effect, flushEffects } from "../../src/core/effect.js";
 
 describe("Signal", () => {
   test("should create a signal with initial value", () => {
-    const count = signal(0);
-    expect(count.value).toBe(0);
+    const [count, setCount] = signal(0);
+    expect(count()).toBe(0);
   });
 
   test("should update signal value", () => {
-    const count = signal(0);
-    count.value = 5;
-    expect(count.value).toBe(5);
+    const [count, setCount] = signal(0);
+    setCount(5);
+    expect(count()).toBe(5);
   });
 
   test("should notify effects when value changes", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let effectRuns = 0;
     let lastValue = 0;
 
     effect(() => {
-      lastValue = count.value;
+      lastValue = count();
       effectRuns++;
     });
 
@@ -28,7 +28,7 @@ describe("Signal", () => {
     expect(effectRuns).toBe(1);
     expect(lastValue).toBe(0);
 
-    count.value = 10;
+    setCount(10);
     
     await flushEffects();
 
@@ -37,78 +37,78 @@ describe("Signal", () => {
   });
 
   test("should not notify effects when value doesn't change", async () => {
-    const count = signal(5);
+    const [count, setCount] = signal(5);
     let effectRuns = 0;
 
     effect(() => {
-      count.value;
+      count();
       effectRuns++;
     });
 
     expect(effectRuns).toBe(1);
 
     // Set to same value
-    count.value = 5;
+    setCount(5);
 
     await flushEffects();
     expect(effectRuns).toBe(1); // Should not run again
   });
 
   test("should use custom equality function", async () => {
-    const obj = signal({ x: 1 }, { equals: (a, b) => a.x === b.x });
+    const [obj, setObj] = signal({ x: 1 }, { equals: (a, b) => a.x === b.x });
     let effectRuns = 0;
 
     effect(() => {
-      obj.value;
+      obj();
       effectRuns++;
     });
 
     expect(effectRuns).toBe(1);
 
     // Different object, same x value
-    obj.value = { x: 1 };
+    setObj({ x: 1 });
 
     await flushEffects();
     expect(effectRuns).toBe(1); // Should not run due to custom equality
   });
 
   test("should remove disposed effects", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let effectRuns = 0;
 
     const dispose = effect(() => {
-      count.value;
+      count();
       effectRuns++;
     });
 
     expect(effectRuns).toBe(1);
 
     dispose();
-    count.value = 10;
+    setCount(10);
 
     await flushEffects();
     expect(effectRuns).toBe(1); // Should not run after disposal
   });
 
   test("should handle multiple effects on same signal", async () => {
-    const count = signal(0);
+    const [count, setCount] = signal(0);
     let effect1Runs = 0;
     let effect2Runs = 0;
 
     effect(() => {
-      count.value;
+      count();
       effect1Runs++;
     });
 
     effect(() => {
-      count.value;
+      count();
       effect2Runs++;
     });
 
     expect(effect1Runs).toBe(1);
     expect(effect2Runs).toBe(1);
 
-    count.value = 5;
+    setCount(5);
 
     await flushEffects();
     expect(effect1Runs).toBe(2);
@@ -116,116 +116,116 @@ describe("Signal", () => {
   });
 
   test("should work with different data types", () => {
-    const stringSignal = signal("hello");
-    const arraySignal = signal([1, 2, 3]);
-    const objectSignal = signal({ name: "test" });
-    const boolSignal = signal(true);
+    const [stringSignal, setStringSignal] = signal("hello");
+    const [arraySignal, setArraySignal] = signal([1, 2, 3]);
+    const [objectSignal, setObjectSignal] = signal({ name: "test" });
+    const [boolSignal, setBoolSignal] = signal(true);
 
-    expect(stringSignal.value).toBe("hello");
-    expect(arraySignal.value).toEqual([1, 2, 3]);
-    expect(objectSignal.value).toEqual({ name: "test" });
-    expect(boolSignal.value).toBe(true);
+    expect(stringSignal()).toBe("hello");
+    expect(arraySignal()).toEqual([1, 2, 3]);
+    expect(objectSignal()).toEqual({ name: "test" });
+    expect(boolSignal()).toBe(true);
 
-    stringSignal.value = "world";
-    arraySignal.value = [4, 5, 6];
-    objectSignal.value = { name: "updated" };
-    boolSignal.value = false;
+    setStringSignal("world");
+    setArraySignal([4, 5, 6]);
+    setObjectSignal({ name: "updated" });
+    setBoolSignal(false);
 
-    expect(stringSignal.value).toBe("world");
-    expect(arraySignal.value).toEqual([4, 5, 6]);
-    expect(objectSignal.value).toEqual({ name: "updated" });
-    expect(boolSignal.value).toBe(false);
+    expect(stringSignal()).toBe("world");
+    expect(arraySignal()).toEqual([4, 5, 6]);
+    expect(objectSignal()).toEqual({ name: "updated" });
+    expect(boolSignal()).toBe(false);
   });
 
   // Edge case tests
   describe("Edge Cases", () => {
     test("should handle null values", () => {
-      const nullSignal = signal<string | null>(null);
-      expect(nullSignal.value).toBeNull();
+      const [nullSignal, setNullSignal] = signal(null);
+      expect(nullSignal()).toBeNull();
       
-      nullSignal.value = "not null";
-      expect(nullSignal.value).toBe("not null");
+      setNullSignal("not null");
+      expect(nullSignal()).toBe("not null");
       
-      nullSignal.value = null;
-      expect(nullSignal.value).toBeNull();
+      setNullSignal(null);
+      expect(nullSignal()).toBeNull();
     });
 
     test("should handle undefined values", () => {
-      const undefinedSignal = signal<string | undefined>(undefined);
-      expect(undefinedSignal.value).toBeUndefined();
+      const [undefinedSignal, setUndefinedSignal] = signal(undefined);
+      expect(undefinedSignal()).toBeUndefined();
       
-      undefinedSignal.value = "defined";
-      expect(undefinedSignal.value).toBe("defined");
+      setUndefinedSignal("defined");
+      expect(undefinedSignal()).toBe("defined");
       
-      undefinedSignal.value = undefined;
-      expect(undefinedSignal.value).toBeUndefined();
+      setUndefinedSignal(undefined);
+      expect(undefinedSignal()).toBeUndefined();
     });
 
     test("should handle NaN values", async () => {
-      const nanSignal = signal(NaN);
-      expect(Number.isNaN(nanSignal.value)).toBe(true);
+      const [nanSignal, setNanSignal] = signal(NaN);
+      expect(Number.isNaN(nanSignal())).toBe(true);
       
       // Object.is(NaN, NaN) is true, so setting to NaN should NOT trigger effects
       let effectRuns = 0;
       effect(() => {
-        nanSignal.value;
+        nanSignal();
         effectRuns++;
       });
       
       expect(effectRuns).toBe(1);
-      nanSignal.value = NaN;
+      setNanSignal(NaN);
       
       await flushEffects();
       expect(effectRuns).toBe(1); // Should NOT trigger because Object.is(NaN, NaN) is true
 
       // But changing to a different value should trigger
-      nanSignal.value = 5;
+      setNanSignal(5);
       await flushEffects();
       expect(effectRuns).toBe(2);
     });
 
     test("should handle Infinity values", () => {
-      const infSignal = signal(Infinity);
-      expect(infSignal.value).toBe(Infinity);
+      const [infSignal, setInfSignal] = signal(Infinity);
+      expect(infSignal()).toBe(Infinity);
       
-      infSignal.value = -Infinity;
-      expect(infSignal.value).toBe(-Infinity);
+      setInfSignal(-Infinity);
+      expect(infSignal()).toBe(-Infinity);
       
-      infSignal.value = Infinity;
-      expect(infSignal.value).toBe(Infinity);
+      setInfSignal(Infinity);
+      expect(infSignal()).toBe(Infinity);
     });
 
     test("should handle Symbol values", () => {
       const sym1 = Symbol("test");
       const sym2 = Symbol("test");
-      const symSignal = signal<symbol>(sym1);
+      const [symSignal, setSymSignal] = signal(sym1);
       
-      expect(symSignal.value).toBe(sym1);
+      expect(symSignal()).toBe(sym1);
       
-      symSignal.value = sym2;
-      expect(symSignal.value).toBe(sym2);
-      expect(symSignal.value).not.toBe(sym1); // Different symbols
+      setSymSignal(sym2);
+      expect(symSignal()).toBe(sym2);
+      expect(symSignal()).not.toBe(sym1); // Different symbols
     });
 
     test("should handle Date objects", () => {
       const date1 = new Date("2024-01-01");
       const date2 = new Date("2024-01-02");
-      const dateSignal = signal(date1);
+      const [dateSignal, setDateSignal] = signal(date1);
       
-      expect(dateSignal.value).toBe(date1);
+      expect(dateSignal()).toBe(date1);
       
-      dateSignal.value = date2;
-      expect(dateSignal.value).toBe(date2);
+      setDateSignal(date2);
+      expect(dateSignal()).toBe(date2);
     });
 
     test("should handle Map and Set", () => {
       const map = new Map([["key", "value"]]);
-      const mapSignal = signal(map);
-      expect(mapSignal.value).toBe(map);
+      const [mapSignal, setMapSignal] = signal(map);
+      expect(mapSignal()).toBe(map);
       
       const set = new Set([1, 2, 3]);
-      const setSignal = signal(set);
-      expect(setSignal.value).toBe(set);
+      const [setSignal, setSetSignal] = signal(set);
+      expect(setSignal()).toBe(set);
     });
 
     test("should handle circular references in objects", () => {
@@ -237,60 +237,60 @@ describe("Signal", () => {
       const obj: CircularObj = { value: 1 };
       obj.self = obj;
       
-      const circularSignal = signal(obj);
-      expect(circularSignal.value.value).toBe(1);
-      expect(circularSignal.value.self).toBe(obj);
-      expect(circularSignal.value.self?.self).toBe(obj);
+      const [circularSignal, setCircularSignal] = signal(obj);
+      expect(circularSignal().value).toBe(1);
+      expect(circularSignal().self).toBe(obj);
+      expect(circularSignal().self?.self).toBe(obj);
     });
 
     test("should handle very large objects", () => {
       const largeObj = Object.fromEntries(
         Array.from({ length: 10000 }, (_, i) => [`key${i}`, i])
       );
-      const largeSignal = signal(largeObj);
+      const [largeSignal, setLargeSignal] = signal(largeObj);
       
-      expect(largeSignal.value).toBe(largeObj);
-      expect(Object.keys(largeSignal.value).length).toBe(10000);
+      expect(largeSignal()).toBe(largeObj);
+      expect(Object.keys(largeSignal()).length).toBe(10000);
     });
 
     test("should handle frozen objects", () => {
       const frozen = Object.freeze({ value: 1 });
-      const frozenSignal = signal<Readonly<{ value: number }>>(frozen);
+      const [frozenSignal, setFrozenSignal] = signal<Readonly<{ value: number }>>(frozen);
       
-      expect(frozenSignal.value).toBe(frozen);
-      expect(Object.isFrozen(frozenSignal.value)).toBe(true);
+      expect(frozenSignal()).toBe(frozen);
+      expect(Object.isFrozen(frozenSignal())).toBe(true);
       
       const newFrozen = Object.freeze({ value: 2 });
-      frozenSignal.value = newFrozen;
-      expect(frozenSignal.value).toBe(newFrozen);
+      setFrozenSignal(newFrozen);
+      expect(frozenSignal()).toBe(newFrozen);
     });
 
     test("should handle sealed objects", () => {
       const sealed = Object.seal({ value: 1 });
-      const sealedSignal = signal(sealed);
+      const [sealedSignal, setSealedSignal] = signal(sealed);
       
-      expect(sealedSignal.value).toBe(sealed);
-      expect(Object.isSealed(sealedSignal.value)).toBe(true);
+      expect(sealedSignal()).toBe(sealed);
+      expect(Object.isSealed(sealedSignal())).toBe(true);
     });
 
     test("should handle concurrent updates", () => {
-      const count = signal(0);
+      const [count, setCount] = signal(0);
       
       // Simulate concurrent updates
-      count.value = 1;
-      count.value = 2;
-      count.value = 3;
+      setCount(1);
+      setCount(2);
+      setCount(3);
       
-      expect(count.value).toBe(3); // Last write wins
+      expect(count()).toBe(3); // Last write wins
     });
 
     test("should handle rapid sequential updates", async () => {
-      const count = signal(0);
+      const [count, setCount] = signal(0);
       let effectRuns = 0;
       let lastValue = 0;
       
       effect(() => {
-        lastValue = count.value;
+        lastValue = count();
         effectRuns++;
       });
       
@@ -298,7 +298,7 @@ describe("Signal", () => {
       
       // Rapid updates
       for (let i = 1; i <= 100; i++) {
-        count.value = i;
+        setCount(i);
       }
       
       await flushEffects();
@@ -311,54 +311,54 @@ describe("Signal", () => {
         throw new Error("Equality check failed");
       };
       
-      const sig = signal(1, { equals: erroringEquals });
+      const [sig, setSig] = signal(1, { equals: erroringEquals });
       
       // Should throw when trying to set value
       expect(() => {
-        sig.value = 2;
+        setSig(2);
       }).toThrow("Equality check failed");
     });
 
     test("should handle custom equality returning non-boolean", async () => {
       const weirdEquals = () => "yes" as unknown as boolean;
-      const sig = signal(1, { equals: weirdEquals });
+      const [sig, setSig] = signal(1, { equals: weirdEquals });
       
       let effectRuns = 0;
       effect(() => {
-        sig.value;
+        sig();
         effectRuns++;
       });
       
       expect(effectRuns).toBe(1);
       
       // "yes" is truthy, so should be treated as equal
-      sig.value = 2;
+      setSig(2);
       
       await flushEffects();
       expect(effectRuns).toBe(1); // Should not trigger
     });
 
     test("should handle zero vs negative zero", () => {
-      const zeroSignal = signal(0);
-      expect(Object.is(zeroSignal.value, 0)).toBe(true);
+      const [zeroSignal, setZeroSignal] = signal(0);
+      expect(Object.is(zeroSignal(), 0)).toBe(true);
       
-      zeroSignal.value = -0;
+      setZeroSignal(-0);
       // In JavaScript, 0 === -0, so default equality won't trigger update
-      expect(zeroSignal.value === 0).toBe(true);
-      expect(Object.is(zeroSignal.value, -0)).toBe(true);
+      expect(zeroSignal() === 0).toBe(true);
+      expect(Object.is(zeroSignal(), -0)).toBe(true);
     });
 
     test("should handle functions as values", () => {
       const fn1 = () => 1;
       const fn2 = () => 2;
-      const fnSignal = signal(fn1);
+      const [fnSignal, setFnSignal] = signal(fn1);
       
-      expect(fnSignal.value).toBe(fn1);
-      expect(fnSignal.value()).toBe(1);
+      expect(fnSignal()).toBe(fn1);
+      expect(fnSignal()()).toBe(1);
       
-      fnSignal.value = fn2;
-      expect(fnSignal.value).toBe(fn2);
-      expect(fnSignal.value()).toBe(2);
+      setFnSignal(() => fn2);
+      expect(fnSignal()).toBe(fn2);
+      expect(fnSignal()()).toBe(2);
     });
 
     test("should handle class instances", () => {
@@ -368,70 +368,70 @@ describe("Signal", () => {
       
       const instance1 = new TestClass(1);
       const instance2 = new TestClass(2);
-      const classSignal = signal(instance1);
+      const [classSignal, setClassSignal] = signal(instance1);
       
-      expect(classSignal.value).toBe(instance1);
-      expect(classSignal.value.value).toBe(1);
+      expect(classSignal()).toBe(instance1);
+      expect(classSignal().value).toBe(1);
       
-      classSignal.value = instance2;
-      expect(classSignal.value).toBe(instance2);
-      expect(classSignal.value.value).toBe(2);
+      setClassSignal(instance2);
+      expect(classSignal()).toBe(instance2);
+      expect(classSignal().value).toBe(2);
     });
 
     test("should handle Promises as values", () => {
       const promise1 = Promise.resolve(1);
       const promise2 = Promise.resolve(2);
-      const promiseSignal = signal(promise1);
+      const [promiseSignal, setPromiseSignal] = signal(promise1);
       
-      expect(promiseSignal.value).toBe(promise1);
+      expect(promiseSignal()).toBe(promise1);
       
-      promiseSignal.value = promise2;
-      expect(promiseSignal.value).toBe(promise2);
+      setPromiseSignal(promise2);
+      expect(promiseSignal()).toBe(promise2);
     });
 
     test("should handle BigInt values", () => {
-      const bigIntSignal = signal(BigInt(9007199254740991));
-      expect(bigIntSignal.value).toBe(BigInt(9007199254740991));
+      const [bigIntSignal, setBigIntSignal] = signal(BigInt(9007199254740991));
+      expect(bigIntSignal()).toBe(BigInt(9007199254740991));
       
-      bigIntSignal.value = BigInt(123);
-      expect(bigIntSignal.value).toBe(BigInt(123));
+      setBigIntSignal(BigInt(123));
+      expect(bigIntSignal()).toBe(BigInt(123));
     });
 
     test("should handle empty strings", () => {
-      const emptySignal = signal("");
-      expect(emptySignal.value).toBe("");
+      const [emptySignal, setEmptySignal] = signal("");
+      expect(emptySignal()).toBe("");
       
-      emptySignal.value = "not empty";
-      expect(emptySignal.value).toBe("not empty");
+      setEmptySignal("not empty");
+      expect(emptySignal()).toBe("not empty");
       
-      emptySignal.value = "";
-      expect(emptySignal.value).toBe("");
+      setEmptySignal("");
+      expect(emptySignal()).toBe("");
     });
 
     test("should handle empty arrays", () => {
-      const emptyArraySignal = signal<number[]>([]);
-      expect(emptyArraySignal.value).toEqual([]);
-      expect(emptyArraySignal.value.length).toBe(0);
+      const [emptyArraySignal, setEmptyArraySignal] = signal([]);
+      expect(emptyArraySignal()).toEqual([]);
+      expect(emptyArraySignal().length).toBe(0);
       
-      emptyArraySignal.value = [1, 2, 3];
-      expect(emptyArraySignal.value).toEqual([1, 2, 3]);
+      setEmptyArraySignal([1, 2, 3]);
+      expect(emptyArraySignal()).toEqual([1, 2, 3]);
     });
 
     test("should handle empty objects", () => {
-      const emptyObjSignal = signal({});
-      expect(emptyObjSignal.value).toEqual({});
-      expect(Object.keys(emptyObjSignal.value).length).toBe(0);
+      const [emptyObjSignal, setEmptyObjSignal] = signal({});
+      expect(emptyObjSignal()).toEqual({});
+      expect(Object.keys(emptyObjSignal()).length).toBe(0);
     });
 
     test("should not prevent garbage collection of old values", () => {
-      const sig = signal({ large: new Array(1000).fill(0) });
+      const [sig, setSig] = signal({ large: new Array(1000).fill(0) });
       
       // Replace with new value - old value should be eligible for GC
-      sig.value = { large: new Array(1000).fill(1) };
+      setSig({ large: new Array(1000).fill(1) });
       
       // Note: We can't force GC or reliably test it in JavaScript
       // This test just documents the expected behavior
-      expect(sig.value.large[0]).toBe(1);
+      expect(sig().large[0]).toBe(1);
     });
   });
 });
