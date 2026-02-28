@@ -33,6 +33,7 @@ export type GetState<T> = () => T;
  */
 export type Store<T> = T & {
   getState: () => T;
+  setState: SetState<T>;
   subscribe: (listener: (state: T) => void) => () => void;
 };
 
@@ -61,9 +62,17 @@ export type StorageAdapter = {
 /**
  * Persistence options required by the persist middleware.
  */
-export interface PersistenceOptions {
-  name: string; // Unique key under which the state is stored
+export interface PersistenceOptions<T = any> {
+  /** Unique key under which the state is stored */
+  name: string;
+  /** Storage adapter (localStorage, IndexedDB, etc.) */
   storage: StorageAdapter;
+  /** Optional version number for migration support */
+  version?: number;
+  /** Callback invoked when hydration completes successfully */
+  onHydrated?: (state: T) => void;
+  /** Callback invoked when storage operations fail */
+  onError?: (error: Error, operation: "load" | "save") => void;
 }
 
 /**

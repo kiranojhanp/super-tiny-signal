@@ -90,6 +90,7 @@ export function createStore<T extends Record<string, any>>(
    * Updates the state.
    *
    * Accepts either a partial state object or an updater function.
+   * Only updates signal-wrapped properties. Functions and methods cannot be updated.
    */
   const set: SetState<T> = (partialUpdate) => {
     const currentState = getState();
@@ -109,9 +110,16 @@ export function createStore<T extends Record<string, any>>(
           if (!equalityCheck(prop.value, newValue)) {
             prop.value = newValue;
           }
+        } else if (typeof prop === "function") {
+          // Attempting to update a function/method - this is not allowed
+          throw new Error(
+            `Cannot update function property "${key}". Store methods are immutable.`
+          );
         } else {
-          // For non-signal properties, directly assign.
-          store[key] = newValue as any;
+          // This shouldn't happen with proper initialization, but handle it gracefully
+          throw new Error(
+            `Cannot update property "${key}": not a signal. This indicates a store initialization error.`
+          );
         }
       } else {
         console.warn(`Store property "${key}" does not exist.`);

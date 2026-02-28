@@ -9,6 +9,9 @@ const pendingEffects: Set<ReactiveEffect> = new Set();
 let isFlushing = false;
 let batchDepth = 0;
 
+// Maximum iterations to prevent infinite loops
+const MAX_FLUSH_ITERATIONS = 100;
+
 /**
  * Schedule an effect to run in a microtask.
  */
@@ -22,11 +25,29 @@ export function scheduleEffect(fn: ReactiveEffect): void {
 }
 
 /**
- * Flush all scheduled effects.
+ * Flush all scheduled effects with infinite loop protection.
+ * 
+ * If effects keep scheduling themselves and exceed MAX_FLUSH_ITERATIONS,
+ * an error is thrown to prevent the application from hanging.
  */
 export function flushEffects(): void {
+  let iterations = 0;
+  
   try {
     while (pendingEffects.size > 0) {
+      iterations++;
+      
+      // Infinite loop protection
+      if (iterations > MAX_FLUSH_ITERATIONS) {
+        const remainingEffects = pendingEffects.size;
+        pendingEffects.clear(); // Clear to prevent further issues
+        throw new Error(
+          `Effect flush exceeded maximum iterations (${MAX_FLUSH_ITERATIONS}). ` +
+          `This likely indicates an infinite loop where effects keep scheduling themselves. ` +
+          `${remainingEffects} effect(s) were pending when stopped.`
+        );
+      }
+      
       // Copy pending effects to process them without issues from modifications.
       const effects = Array.from(pendingEffects);
       pendingEffects.clear();

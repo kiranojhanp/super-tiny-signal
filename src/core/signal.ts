@@ -1,8 +1,6 @@
-import { ReactiveEffect } from "../types";
+import { ReactiveEffect, EqualsFn } from "../types";
+import { defaultEquals } from "../utils/equality.js";
 import { activeEffects, scheduleEffect } from "./effect.js";
-
-type EqualsFn<T> = (a: T, b: T) => boolean;
-const defaultEquals: EqualsFn<any> = Object.is;
 
 /***
  * ====================================================

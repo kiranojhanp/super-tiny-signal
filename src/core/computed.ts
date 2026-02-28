@@ -19,9 +19,10 @@ export class Computed<T> extends Signal<T> {
   private dirty: boolean = true;
   private eager: boolean;
   private isComputing: boolean = false; // Used to avoid re-entrant recomputations.
+  private sources: Set<Signal<any>> = new Set(); // Track dependency signals
 
   // Create a stable callback so that dependencies always subscribe to the same function.
-  private markDirty = () => {
+  private markDirty = (() => {
     if (!this.dirty) {
       this.dirty = true;
       if (this.eager && !this.isComputing) {
@@ -32,7 +33,7 @@ export class Computed<T> extends Signal<T> {
         scheduleEffect(eff);
       }
     }
-  };
+  }) as any;
 
   constructor(
     computeFn: () => T,
@@ -44,6 +45,10 @@ export class Computed<T> extends Signal<T> {
     super(undefined as unknown as T, equals);
     this.computeFn = computeFn;
 
+    // Initialize markDirty as a ReactiveEffect with dependencies tracking
+    this.markDirty.dependencies = new Set();
+    this.markDirty.disposed = false;
+
     this.eager = options?.eager ?? false;
     if (this.eager) {
       this.recompute();
@@ -54,10 +59,21 @@ export class Computed<T> extends Signal<T> {
    * Recompute the computed value.
    * During computation, this.markDirty is pushed onto the activeEffects stack
    * so that any signal read during the computation will subscribe to it.
+   * 
+   * This properly tracks dependencies and cleans up old ones.
    */
   private recompute(): void {
     if (this.isComputing) return;
     this.isComputing = true;
+
+    // Clean up old dependencies before recomputing
+    for (const source of this.sources) {
+      source.removeEffect(this.markDirty);
+    }
+    this.sources.clear();
+    this.markDirty.dependencies.clear();
+
+    // Push markDirty onto the active effects stack
     activeEffects.push(this.markDirty);
 
     try {
@@ -66,6 +82,13 @@ export class Computed<T> extends Signal<T> {
         this._value = newValue;
       }
       this.dirty = false;
+
+      // Track the new sources (signals that were accessed during computation)
+      if (this.markDirty.dependencies) {
+        for (const dep of this.markDirty.dependencies) {
+          this.sources.add(dep);
+        }
+      }
     } finally {
       activeEffects.pop();
       this.isComputing = false;
