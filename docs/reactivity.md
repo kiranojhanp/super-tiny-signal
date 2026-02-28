@@ -48,7 +48,7 @@ That batching behavior is what keeps rapid writes from spamming effect execution
 
 ## computed values
 
-`Computed<T>` extends `Signal<T>`, but the value comes from a function.
+`computed<T>()` returns a read-only computed wrapper (`Computed<T>`), and `derived<T>()` returns a callable getter (`() => T`).
 
 - It tracks source dependencies by running with an internal marker effect (`markDirty`).
 - When a source changes, computed becomes dirty.

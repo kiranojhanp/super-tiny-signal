@@ -7,7 +7,7 @@ This doc covers how `createStore` manages state and how `persist` saves it.
 At creation time:
 
 1. Your initializer returns a state object with fields and actions.
-2. Non-function fields are wrapped in `Signal` instances.
+2. Non-function fields are wrapped in callable signals.
 3. Function fields are kept as callable actions.
 4. The returned store is frozen and extended with helpers:
    - `getState()`
@@ -16,7 +16,7 @@ At creation time:
 
 ```mermaid
 flowchart TD
-  A[initializer set/get => state object] --> B[wrap non-function fields in Signal]
+  A[initializer set/get => state object] --> B[wrap non-function fields in callable signals]
   B --> C[attach actions unchanged]
   C --> D[attach getState setState subscribe]
   D --> E[freeze store object]
@@ -33,7 +33,7 @@ For each changed key:
 
 - Signal-backed keys compare old/new values.
 - Equality check uses `deepEqual` when `deepEquality: true`; otherwise `Object.is`.
-- If changed, the signal value is updated.
+- If changed, the signal value is updated via callable setter.
 - After updates, subscribers are notified through the scheduler queue.
 
 Subscriber notifications are scheduled so multiple rapid updates can coalesce.
@@ -89,3 +89,4 @@ interface StorageAdapter {
 - Hydration is async. If your UI depends on persisted state, handle the initial pre-hydration render.
 - Unknown keys passed to `setState` are ignored with a warning.
 - If a subscriber throws, `onSubscriberError` can centralize handling.
+- `store.field.value` still works in beta for migration compatibility, but `store.field()` is the preferred read syntax.

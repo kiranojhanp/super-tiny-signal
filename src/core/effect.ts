@@ -1,4 +1,5 @@
 import type { Cleanup, EffectRunner, ReactiveEffect } from "../types/index.js";
+import { registerNodeCleanup } from "../dom/scopeCleanup.js";
 
 // Active effects stack.
 export const activeEffects: ReactiveEffect[] = [];
@@ -89,8 +90,9 @@ export function batch(fn: () => void): void {
  * It returns a disposal function that, when called, will prevent further runs
  * and remove the effect from all signals it depends on.
  */
-export function effect(fn: () => Cleanup): () => void {
+export function effect(fn: () => Cleanup, scope?: Node): () => void {
   let cleanup: Cleanup;
+  let unregisterScopeCleanup = () => {};
 
   const runner: EffectRunner = function effectRunner() {
     if (typeof cleanup === "function") {
@@ -121,18 +123,25 @@ export function effect(fn: () => Cleanup): () => void {
   runner();
 
   // Return a function to dispose of the effect.
-  return () => {
+  const dispose = () => {
+    if (runner.disposed) return;
     runner.disposed = true;
-
     if (typeof cleanup === "function") {
       cleanup();
       cleanup = undefined;
     }
-
+    unregisterScopeCleanup();
     if (runner.dependencies) {
       for (const dep of runner.dependencies) {
         dep.removeEffect(runner);
       }
+      runner.dependencies.clear();
     }
   };
+
+  if (scope) {
+    unregisterScopeCleanup = registerNodeCleanup(scope, dispose);
+  }
+
+  return dispose;
 }

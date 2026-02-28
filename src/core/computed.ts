@@ -1,7 +1,7 @@
 import { activeEffects, scheduleEffect } from "./effect.js";
 import { Signal } from "./signal.js";
 
-import type { EqualsFn, ReactiveEffect } from "../types/index.js";
+import type { DependencyNode, EqualsFn, ReactiveEffect } from "../types/index.js";
 import { defaultEquals } from "../utils/equality.js";
 
 /***
@@ -19,7 +19,7 @@ export class Computed<T> extends Signal<T> {
   private dirty: boolean = true;
   private eager: boolean;
   private isComputing: boolean = false; // Used to avoid re-entrant recomputations.
-  private sources: Set<Signal<unknown>> = new Set(); // Track dependency signals
+  private sources: Set<DependencyNode> = new Set();
 
   // Create a stable callback as ReactiveEffect so that dependencies always subscribe to the same function.
   private markDirtyEffect: ReactiveEffect;
@@ -148,14 +148,47 @@ export class Computed<T> extends Signal<T> {
   }
 }
 
+export interface ComputedSignal<T> {
+  (): T;
+  readonly value: T;
+  peek(): T;
+  addEffect(effect: ReactiveEffect): void;
+  removeEffect(effect: ReactiveEffect): void;
+  toString(): string;
+}
+
+function createComputedSignal<T>(core: Computed<T>): ComputedSignal<T> {
+  const callable = function computedAccessor(): T {
+    return core.value;
+  } as ComputedSignal<T>;
+
+  Object.defineProperty(callable, "value", {
+    get() {
+      return core.value;
+    },
+    set() {
+      throw new Error("Cannot set value of a computed signal");
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  callable.peek = () => core.peek();
+  callable.addEffect = (effect) => core.addEffect(effect);
+  callable.removeEffect = (effect) => core.removeEffect(effect);
+  callable.toString = () => core.toString();
+
+  return callable;
+}
+
 /**
  * Helper to create a new computed signal.
  */
 export function computed<T>(
   computeFn: () => T,
   options?: { eager?: boolean; equals?: EqualsFn<T> }
-): Computed<T> {
-  return new Computed(computeFn, options);
+): ComputedSignal<T> {
+  return createComputedSignal(new Computed(computeFn, options));
 }
 
 export function derived<T>(

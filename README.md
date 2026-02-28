@@ -49,7 +49,7 @@ stop();
 ### Reactivity primitives
 
 ```ts
-import { signal, derived, effect, batch } from "super-tiny-signal";
+import { signal, derived, effect, batch, bindText, bindAttr, on } from "super-tiny-signal";
 
 const [a, setA] = signal(1);
 const [b, setB] = signal(2);
@@ -63,6 +63,11 @@ batch(() => {
   setA(10);
   setB(20);
 });
+
+const output = document.createElement("p");
+bindText(output, () => `sum=${sum()}`);
+bindAttr(output, "data-ready", () => (sum() > 0 ? "yes" : null));
+on(document.body, "click", () => console.log("clicked body"));
 
 dispose();
 ```
@@ -104,6 +109,24 @@ store.setState({ theme: "dark" });
 console.log(store.getState().theme);
 ```
 
+## Before vs after
+
+```ts
+// Before
+const count = signal(0);
+count.value = count.value + 1;
+effect(() => console.log(count.value));
+
+// After
+const [count, setCount] = signal(0);
+setCount((prev) => prev + 1);
+effect(() => console.log(count()));
+```
+
+- Less boilerplate: no repetitive `.value` in most reactive code.
+- Better vanilla DOM DX: direct `bindText`/`bindAttr`/`on` helpers, no VDOM.
+- Safer lifecycle: scope-aware cleanup when bound DOM nodes are removed.
+
 ---
 
 ## Documentation
@@ -111,6 +134,7 @@ console.log(store.getState().theme);
 - [Architecture overview](docs/README.md)
 - [Reactivity internals](docs/reactivity.md)
 - [Store and persistence](docs/store-and-persistence.md)
+- [Callable-signal migration guide](docs/migration/callable-signals.md)
 
 ---
 
@@ -130,6 +154,9 @@ import {
   useState,
   useMemo,
   useEffect,
+  bindText,
+  bindAttr,
+  on,
   deepEqual,
 } from "super-tiny-signal";
 ```

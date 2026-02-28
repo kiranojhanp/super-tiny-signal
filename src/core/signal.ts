@@ -1,4 +1,10 @@
-import { ReactiveEffect, EqualsFn, Getter, Setter, SignalTuple } from "../types";
+import type {
+  EqualsFn,
+  Getter,
+  ReactiveEffect,
+  Setter,
+  SignalTuple,
+} from "../types/index.js";
 import { defaultEquals } from "../utils/equality.js";
 import { activeEffects, scheduleEffect } from "./effect.js";
 
@@ -91,6 +97,22 @@ export class Signal<T> {
     this._effects.delete(effect);
     effect.dependencies?.delete(this as Signal<unknown>);
   }
+}
+
+export function isSignal(value: unknown): value is Signal<unknown> {
+  if (typeof value !== "object" || value === null) return false;
+
+  const candidate = value as {
+    value?: unknown;
+    addEffect?: unknown;
+    removeEffect?: unknown;
+  };
+
+  return (
+    "value" in candidate &&
+    typeof candidate.addEffect === "function" &&
+    typeof candidate.removeEffect === "function"
+  );
 }
 
 /**

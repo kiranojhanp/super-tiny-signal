@@ -20,7 +20,6 @@ function isSignal(value: unknown): value is Signal<unknown> {
     typeof candidate.removeEffect === "function"
   );
 }
-
 export function createStore<T extends Record<string, unknown>>(
   initializer: (set: SetState<T>, get: () => T) => T,
   config: CreateStoreConfig<T> = {}
