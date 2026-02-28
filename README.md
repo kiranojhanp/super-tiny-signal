@@ -128,6 +128,14 @@ For IndexedDB, use `createIndexedDBStorage(dbName, storeName)`.
 The library ships type declarations, and all core APIs are generic.
 If you pass explicit store types, you get typed state, actions, and subscribers.
 
+## docs
+
+Need more depth? Start here:
+
+- `docs/README.md` for the docs map and architecture overview
+- `docs/reactivity.md` for signal/computed/effect internals and scheduling
+- `docs/store-and-persistence.md` for store updates, subscriptions, and persistence flow
+
 ## contributing
 
 Issues and pull requests are welcome.
