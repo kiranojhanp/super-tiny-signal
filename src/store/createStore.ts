@@ -1,45 +1,17 @@
-import { scheduleEffect } from "../core/effect";
-import { signal, Signal } from "../core/signal";
-import { deepEqual } from "../utils/equality";
+import { effect, scheduleEffect } from "../core/effect.js";
+import { signal, Signal } from "../core/signal.js";
+import { deepEqual } from "../utils/equality.js";
 
-import type { CreateStoreConfig, SetState, Store } from "../types";
+import type { CreateStoreConfig, SetState, Store } from "../types/index.js";
 
 /**
- * Checks if a value is a signal.
+ * Type guard to check if a value is a Signal.
  */
-function isSignal(value: any): value is Signal<any> {
+function isSignal(value: unknown): value is Signal<unknown> {
   return value instanceof Signal;
 }
 
-/**
- * Creates a strongly-typed store.
- *
- * @template T - The shape of the store state.
- * @param initializer - A function that initializes the state, receiving a setter and a getter.
- * @param config - Optional configuration for deep equality and error handling.
- * @returns The store instance.
- *
- * @example
- * interface IStore {
- *   count: number;
- *   increment: () => void;
- *   decrement: () => void;
- * }
- *
- * const counterStore = createStore<IStore>(
- *   (set, get) => ({
- *     count: 0,
- *     increment: () => set({ count: get().count + 1 }),
- *     decrement: () => set({ count: get().count - 1 }),
- *   }),
- *   { deepEquality: true } // Optional configuration
- * );
- *
- * console.log(counterStore.getState()); // { count: 0 }
- * counterStore.increment();
- * console.log(counterStore.getState()); // { count: 1 }
- */
-export function createStore<T extends Record<string, any>>(
+export function createStore<T extends Record<string, unknown>>(
   initializer: (set: SetState<T>, get: () => T) => T,
   config: CreateStoreConfig<T> = {}
 ): Store<T> {
@@ -50,14 +22,19 @@ export function createStore<T extends Record<string, any>>(
 
   /**
    * Returns a plain state object by unwrapping signals.
+   * Excludes utility methods (getState, setState, subscribe).
    */
-  const getState = (): T =>
-    Object.fromEntries(
-      Object.entries(store).map(([key, prop]) => [
-        key,
-        isSignal(prop) ? prop.value : prop,
-      ])
+  const getState = (): T => {
+    const EXCLUDED_KEYS = new Set(['getState', 'setState', 'subscribe']);
+    return Object.fromEntries(
+      Object.entries(store)
+        .filter(([key]) => !EXCLUDED_KEYS.has(key))
+        .map(([key, prop]) => [
+          key,
+          isSignal(prop) ? prop.value : prop,
+        ])
     ) as T;
+  };
 
   // Batched notification handling.
   let pendingNotification = false;
@@ -90,6 +67,7 @@ export function createStore<T extends Record<string, any>>(
    * Updates the state.
    *
    * Accepts either a partial state object or an updater function.
+   * Only updates signal-wrapped properties. Functions and methods cannot be updated.
    */
   const set: SetState<T> = (partialUpdate) => {
     const currentState = getState();
@@ -109,9 +87,16 @@ export function createStore<T extends Record<string, any>>(
           if (!equalityCheck(prop.value, newValue)) {
             prop.value = newValue;
           }
+        } else if (typeof prop === "function") {
+          // Attempting to update a function/method - this is not allowed
+          throw new Error(
+            `Cannot update function property "${key}". Store methods are immutable.`
+          );
         } else {
-          // For non-signal properties, directly assign.
-          store[key] = newValue as any;
+          // This shouldn't happen with proper initialization, but handle it gracefully
+          throw new Error(
+            `Cannot update property "${key}": not a signal. This indicates a store initialization error.`
+          );
         }
       } else {
         console.warn(`Store property "${key}" does not exist.`);
@@ -120,9 +105,23 @@ export function createStore<T extends Record<string, any>>(
     scheduleNotify();
   };
 
+  // Reserved property names that cannot be used in store state
+  const RESERVED_PROPERTIES = new Set(['getState', 'setState', 'subscribe']);
+
   // Initialize state using the initializer.
   // Non-function properties are wrapped in signals.
   const initialState = initializer(set, getState);
+  
+  // Validate property names
+  for (const key of Object.keys(initialState)) {
+    if (RESERVED_PROPERTIES.has(key)) {
+      throw new Error(
+        `Cannot use reserved property name "${key}" in store state. ` +
+        `Reserved names are: ${Array.from(RESERVED_PROPERTIES).join(', ')}`
+      );
+    }
+  }
+  
   store = Object.fromEntries(
     Object.entries(initialState).map(([key, value]) => [
       key,
@@ -130,6 +129,22 @@ export function createStore<T extends Record<string, any>>(
     ])
   ) as Store<T>;
 
+  // Subscribe to all signal changes to trigger subscriber notifications
+  for (const [key, prop] of Object.entries(store)) {
+    if (isSignal(prop)) {
+      let isFirst = true;
+      // Create an effect that watches this signal and schedules notifications
+      effect(() => {
+        prop.value; // Read the value to track dependency
+        // Skip the initial run (effects run immediately)
+        if (isFirst) {
+          isFirst = false;
+          return;
+        }
+        scheduleNotify();
+      });
+    }
+  }
   // Augment the store with utility methods.
   Object.assign(store, {
     getState,

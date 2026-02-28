@@ -1,19 +1,10 @@
-# Super Tiny Signal
+# super-tiny-signal
 
-[![npm version](https://badge.fury.io/js/super-tiny-signal.svg)](https://www.npmjs.com/package/super-tiny-signal)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Tiny, predictable reactivity for production apps.
 
-Super Tiny Signal is a small reactive state library for JavaScript and TypeScript.
+`super-tiny-signal` gives you fine-grained reactive primitives (`signal`, `computed`, `effect`) plus ergonomic helpers (`createStore`, `useState`, `useMemo`, `useEffect`) and optional persistence middleware.
 
-It gives you the basics you usually need:
-
-- signals for state
-- computed values for derived state
-- effects for side effects
-- a lightweight store helper for larger state objects
-- optional persistence middleware
-
-No framework lock-in, no giant API surface.
+Framework-agnostic, TypeScript-first, built for deterministic behavior.
 
 ## install
 
@@ -21,112 +12,279 @@ No framework lock-in, no giant API surface.
 npm install super-tiny-signal
 ```
 
-```bash
-bun add super-tiny-signal
-```
-
-```bash
-yarn add super-tiny-signal
-```
-
 ## quick start
 
 ```ts
-import { signal, computed, effect, batch } from "super-tiny-signal";
+import { signal, computed, effect } from "super-tiny-signal";
 
-const count = signal(0);
+const count = signal(1);
 const doubled = computed(() => count.value * 2);
 
 const dispose = effect(() => {
-  console.log(`count: ${count.value}, doubled: ${doubled.value}`);
+  console.log("count:", count.value, "doubled:", doubled.value);
+});
+
+count.value = 2; // logs updated values
+
+dispose(); // stop reacting
+```
+
+## core primitives
+
+### `signal(initialValue, options?)`
+
+Create a reactive value.
+
+```ts
+import { signal } from "super-tiny-signal";
+
+const name = signal("Ada");
+name.value = "Grace";
+
+const custom = signal(
+  { x: 1, y: 2 },
+  {
+    equals: (a, b) => a.x === b.x && a.y === b.y,
+  }
+);
+```
+
+### `computed(fn, options?)`
+
+Create derived reactive state. Lazy by default, with optional eager mode.
+
+```ts
+import { signal, computed } from "super-tiny-signal";
+
+const price = signal(100);
+const taxRate = signal(0.2);
+
+const total = computed(() => price.value * (1 + taxRate.value));
+console.log(total.value); // 120
+```
+
+### `effect(fn)`
+
+Run a side effect that auto-tracks dependencies. Returns a disposer.
+
+```ts
+import { signal, effect } from "super-tiny-signal";
+
+const online = signal(false);
+
+const stop = effect(() => {
+  document.body.dataset.online = String(online.value);
+});
+
+online.value = true;
+stop();
+```
+
+### `batch(fn)`
+
+Batch multiple writes and flush effects once.
+
+```ts
+import { signal, batch, effect } from "super-tiny-signal";
+
+const a = signal(1);
+const b = signal(2);
+
+effect(() => {
+  console.log(a.value + b.value);
 });
 
 batch(() => {
-  count.value = 1;
-  count.value = 2;
+  a.value = 10;
+  b.value = 20;
+});
+```
+
+## hook-like helpers
+
+Plain-function utilities, not tied to React.
+
+### `useState(initialValue)`
+
+```ts
+import { useState } from "super-tiny-signal";
+
+const [count, setCount] = useState(0);
+setCount(1);
+setCount((prev) => prev + 1);
+```
+
+### `useMemo(fn, options?)`
+
+Returns a computed signal.
+
+```ts
+import { useMemo, signal } from "super-tiny-signal";
+
+const items = signal([1, 2, 3]);
+const total = useMemo(() => items.value.reduce((s, n) => s + n, 0));
+
+console.log(total.value);
+```
+
+### `useEffect(fn)`
+
+Supports cleanup on rerun and disposal.
+
+```ts
+import { useEffect, signal } from "super-tiny-signal";
+
+const query = signal("initial");
+
+const dispose = useEffect(() => {
+  const controller = new AbortController();
+
+  fetch(`/search?q=${query.value}`, { signal: controller.signal });
+
+  return () => controller.abort();
 });
 
 dispose();
 ```
 
-`effect` runs once immediately, then reruns when tracked signals change.
-`batch` groups updates so dependent effects flush once at the end.
+## store API
 
-## stores
-
-If you want actions and subscriptions in one place, use `createStore`.
+`createStore` builds a signal-backed store with immutable methods and subscription support.
 
 ```ts
 import { createStore } from "super-tiny-signal";
 
-type CounterStore = {
-  count: number;
-  increment: () => void;
-  decrement: () => void;
-};
-
-const counter = createStore<CounterStore>((set, get) => ({
+const store = createStore((set, get) => ({
   count: 0,
-  increment: () => set({ count: get().count + 1 }),
-  decrement: () => set({ count: get().count - 1 }),
+  label: "counter",
+  inc: () => set({ count: get().count + 1 }),
+  reset: () => set({ count: 0 }),
 }));
 
-const unsubscribe = counter.subscribe((state) => {
-  console.log("count changed:", state.count);
+store.inc();
+console.log(store.count.value); // 1
+
+const unsubscribe = store.subscribe((state) => {
+  console.log("state changed:", state);
 });
 
-counter.increment();
-console.log(counter.getState().count);
-
+store.setState({ label: "main" });
 unsubscribe();
 ```
 
+### store notes
+
+- Non-function state fields are wrapped as signals (`store.field.value`).
+- Function fields become immutable store methods.
+- Reserved state keys are blocked: `getState`, `setState`, `subscribe`.
+
 ## persistence
 
-Use `persist` to save and restore store state.
+Use `persist` middleware with `createStore`.
 
 ```ts
-import { createStore, persist, createJSONStorage } from "super-tiny-signal";
+import {
+  createStore,
+  persist,
+  createJSONStorage,
+} from "super-tiny-signal";
 
-type CounterStore = {
-  count: number;
-  increment: () => void;
-};
+const storage = createJSONStorage(() => localStorage);
 
-const counter = createStore<CounterStore>(
+const store = createStore(
   persist(
-    (set, get) => ({
-      count: 0,
-      increment: () => set({ count: get().count + 1 }),
+    () => ({
+      theme: "light",
+      sidebarOpen: true,
     }),
     {
-      name: "counter-store",
-      storage: createJSONStorage(() => localStorage),
+      name: "app-settings",
+      storage,
+      version: 1,
+      onHydrated: (state) => {
+        console.log("hydrated", state);
+      },
+      onError: (error, operation) => {
+        console.error("persist", operation, error);
+      },
     }
   )
 );
 ```
 
-For IndexedDB, use `createIndexedDBStorage(dbName, storeName)`.
+IndexedDB adapter:
 
-## API at a glance
+```ts
+import { createIndexedDBStorage } from "super-tiny-signal";
 
-- `signal<T>(initialValue, options?)` creates a writable `Signal<T>`
-- `computed<T>(computeFn, options?)` creates a read-only `Computed<T>`
-- `effect(fn)` registers a reactive effect and returns a dispose function
-- `batch(fn)` batches signal updates before flushing effects
-- `createStore<T>(initializer, config?)` builds a typed store with `getState()` and `subscribe()`
-- `persist(initializer, options)` wraps a store initializer with persistence
-- `createJSONStorage(storageFactory)` creates a JSON storage adapter
-- `createIndexedDBStorage(dbName, storeName)` creates an IndexedDB storage adapter
-- `useState(initialValue)` returns `[Signal<T>, setValue]`
-- `useMemo(fn)` computes and memoizes a reactive value
-- `useEffect(fn)` runs an effect with optional cleanup
+const indexed = createIndexedDBStorage({
+  dbName: "app-db",
+  storeName: "keyval",
+});
+```
 
-## TypeScript notes
+## API surface
 
-The library ships type declarations, and all core APIs are generic.
-If you pass explicit store types, you get typed state, actions, and subscribers.
+```ts
+import {
+  signal,
+  computed,
+  effect,
+  batch,
+  createStore,
+  persist,
+  createJSONStorage,
+  createIndexedDBStorage,
+  useState,
+  useMemo,
+  useEffect,
+  deepEqual,
+} from "super-tiny-signal";
+```
+
+<details>
+<summary><strong>Advanced: core reactive flow (Mermaid diagram)</strong></summary>
+
+```mermaid
+flowchart TD
+  W[Signal write] --> EQ{equals old/new?}
+  EQ -->|yes| NOOP[No-op]
+  EQ -->|no| SET[Set signal value]
+  SET --> DIRTY[Mark dependent computeds dirty synchronously]
+  DIRTY --> QUEUE[Queue dependent effects]
+  QUEUE --> FLUSH[Effect scheduler flush]
+  FLUSH --> RUN[Run effect]
+  RUN --> TRACK[Track accessed signals/computeds]
+  TRACK --> NEXT[Future writes trigger only tracked dependencies]
+
+  READ[Computed read] --> CHK{Dirty?}
+  CHK -->|no| CACHE[Return cached value]
+  CHK -->|yes| RECOMP[Recompute + refresh dependencies]
+  RECOMP --> CACHE
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced: consistency and safety guarantees</strong></summary>
+
+- Computed invalidation is synchronous, so immediate reads after writes see fresh values.
+- Effects are scheduled and flushed with loop protection to avoid runaway recursion.
+- Dependency tracking is dynamic: unused branches are unsubscribed on recompute.
+- Equality defaults to `Object.is` and can be overridden per signal/computed.
+- Store subscriber errors can be handled via `onSubscriberError` config.
+
+</details>
+
+<details>
+<summary><strong>Advanced: behavior notes and pitfalls</strong></summary>
+
+- `useState` treats function arguments in setter form as updater functions.
+- `persist` stores `{ state, version }` metadata under the configured key.
+- Persistence adapters are async by contract, even when underlying storage is sync.
+- For unsupported JSON values (circular references, etc.), handle errors via `onError`.
+
+</details>
 
 ## docs
 
@@ -136,10 +294,20 @@ Need more depth? Start here:
 - `docs/reactivity.md` for signal/computed/effect internals and scheduling
 - `docs/store-and-persistence.md` for store updates, subscriptions, and persistence flow
 
-## contributing
+## production checklist
 
-Issues and pull requests are welcome.
+- Use strict TypeScript mode in your app.
+- Add app-level tests around your critical reactive flows.
+- Prefer deterministic tests (`flush`-driven) over timer windows.
+- Use custom `equals` only when you fully understand its invalidation impact.
+
+## development
+
+```bash
+npm run build
+bun test
+```
 
 ## license
 
-MIT. See `LICENSE`.
+MIT

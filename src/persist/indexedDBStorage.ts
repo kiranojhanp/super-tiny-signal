@@ -1,31 +1,40 @@
+import type { StorageAdapter } from "../types";
+
 /**
- * Creates an IndexedDB-based storage object.
+ * Creates an IndexedDB-based storage adapter.
  *
- * This function returns an object with getItem and setItem methods,
- * which work asynchronously. (They return Promises.)
+ * This function returns a StorageAdapter that works asynchronously with IndexedDB.
+ * Unlike localStorage, IndexedDB can store structured data directly, so values
+ * are stored as-is (typically strings from JSON.stringify in persist middleware).
  *
  * @param dbName The name of the IndexedDB database.
- * @param storeName The name of the object store.
+ * @param storeName The name of the object store within the database.
+ * @param version The database version (defaults to 1). Increment when schema changes.
+ * @returns A StorageAdapter for use with the persist middleware.
  */
-export function createIndexedDBStorage(dbName: string, storeName: string) {
+export function createIndexedDBStorage(
+  dbName: string,
+  storeName: string,
+  version = 1
+): StorageAdapter {
   return {
-    async getItem(key: string): Promise<string | null> {
-      const db = await openDB(dbName, storeName);
-      return await new Promise<string | null>((resolve, reject) => {
+    async getItem(key: string): Promise<unknown | null> {
+      const db = await openDB(dbName, storeName, version);
+      return await new Promise<unknown | null>((resolve, reject) => {
         const transaction = db.transaction(storeName, "readonly");
         const objectStore = transaction.objectStore(storeName);
         const request = objectStore.get(key);
         request.onsuccess = () => {
-          // Return the stored value as a string (or null if not found)
-          resolve(request.result ? request.result.toString() : null);
+          // Return the raw value (not toString) - persist middleware expects JSON strings
+          resolve(request.result ?? null);
         };
         request.onerror = () => {
           reject(request.error);
         };
       });
     },
-    async setItem(key: string, value: string): Promise<void> {
-      const db = await openDB(dbName, storeName);
+    async setItem(key: string, value: unknown): Promise<void> {
+      const db = await openDB(dbName, storeName, version);
       return await new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(storeName, "readwrite");
         const objectStore = transaction.objectStore(storeName);
@@ -42,13 +51,18 @@ export function createIndexedDBStorage(dbName: string, storeName: string) {
 }
 
 /**
- * Helper to open (or create) an IndexedDB database with the specified dbName and storeName.
+ * Helper to open (or create) an IndexedDB database with the specified dbName, storeName, and version.
  */
-function openDB(dbName: string, storeName: string): Promise<IDBDatabase> {
+function openDB(
+  dbName: string,
+  storeName: string,
+  version: number
+): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName);
+    const request = indexedDB.open(dbName, version);
     request.onupgradeneeded = () => {
       const db = request.result;
+      // Create object store if it doesn't exist
       if (!db.objectStoreNames.contains(storeName)) {
         db.createObjectStore(storeName);
       }

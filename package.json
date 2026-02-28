@@ -17,12 +17,15 @@
   "type": "module",
   "scripts": {
     "build": "tsup",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "release": "npx bumpp --commit --push --tag && npm publish"
   },
   "keywords": [
     "super-tiny-signal"
   ],
   "devDependencies": {
+    "@types/bun": "^1.3.9",
     "tsup": "^8.3.6",
     "typescript": "^5.7.3"
   },
