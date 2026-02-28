@@ -1,3 +1,5 @@
+![prapti](assets/banner.png)
+
 # SuperTinySignal
 
 Tiny, framework-agnostic reactivity for TypeScript apps.
